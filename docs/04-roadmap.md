@@ -3,6 +3,19 @@
 Build order chosen so every milestone ends with something playable-ish, and the
 riskiest reused assumptions (protocol package, reconnect) are validated first.
 
+## Design runway (now, before/alongside M0)
+
+Design-phase artifacts, in their intended order:
+
+| Artifact | Status |
+|---|---|
+| Screen inventory & flow (`05-ux-flow.md`) | ✅ done |
+| Hard-screen interaction design (`06-key-screens.md`) | ✅ done |
+| Design system — visual direction, tokens, typography (`07-design-system.md`) | ✅ done |
+
+The design runway is complete. All styling work from M1 onward follows
+`07-design-system.md` (light-only for v1); M0 remains visual-free plumbing.
+
 ## M0 — Skeleton *(the boring milestone that saves the project)*
 
 - Bun workspaces monorepo: `apps/server`, `apps/client`, `packages/protocol`.
@@ -21,7 +34,9 @@ for 60 s and resumes its seat.
 ## M1 — Lobby & board fill
 
 - Settings UI (host) + `SettingsSchema` validation; player list; start gating.
-- Private board editor: 25 cells, write/clear, done toggle; pool slots when K > 0.
+- Private board editor per `06-key-screens.md`: dump mode (rapid entry,
+  own-board/pool toggle) + arrange mode (drag-to-swap, tap-tap fallback with
+  select/scale affordance); ready freeze/un-ready semantics; pool slots when K > 0.
 - Public/private split live: other boards render as status grids.
 - `distribute` with round-robin offset + `fromPool` flags.
 
@@ -32,8 +47,10 @@ pool names; boards look right on phones.
 
 - House board generation, draw engine (`drawsPerRound`, free center, target
   lines), lazy topic pairing, deck reshuffle-on-empty.
-- `open_floor`: propose → queue → confirm/withdraw → pass; resolve-based
-  auto-advance; host force-advance; lock tags on cells.
+- `open_floor` per `06-key-screens.md`: topic banner + House chip, stage strip,
+  board centerpiece with cell tap-sheet, propose → queue → on-stage takeover
+  (confirm lock / withdraw) → pass with confirm tap; resolve-based auto-advance;
+  inline host force-advance; lock tags on cells.
 - House bingo detection → results (winners, plain reveal).
 - Seeded `general` deck loaded from JSON into SQLite; lobby deck picker (single
   deck is fine here).
@@ -43,10 +60,14 @@ results, with at least one heated argument. (Yes, this is a real test.)
 
 ## M3 — Display & drama
 
-- Display layout: House board (per visibility mode), called numbers, current
+- Display "Stage" super-state per `05-ux-flow.md`: one persistent layout across
+  the round loop — House board (per visibility mode), called numbers, current
   topic large, proposal "on stage" card, player status-grid strip.
-- Player-view polish: topic banner, proposal queue awareness, resolved
-  indicators, lock animations, new-House-hit flash (client-side snapshot diff).
+- Lobby join affordances: display lobby splash with huge code + QR deep link
+  (`/?code=XXXX`); share-link button in the phone lobby (zero-display path).
+- Player-view polish: draw-moment takeover animation, proposal queue awareness,
+  resolved indicators, lock animations, new-House-hit flash (client-side
+  snapshot diff).
 - `houseBoardVisibility` modes `progress` and `hidden`.
 - `roundTimerSec` and `lastCall`.
 
@@ -55,8 +76,9 @@ hit without anyone explaining the screen.
 
 ## M4 — Results, reveal & share
 
-- Full results screen: winners, board reveal with lock tags, pool authorship
-  reveal, round-history replay list.
+- Host-paced synchronized results sequence (`results.advance` / `revealStage`):
+  winners → pool authorship roast → board reveal with lock tags +
+  round-history replay list.
 - Game log persisted to SQLite on completion.
 - Canvas board render → PNG → `navigator.share()` / download.
 - `game.playAgain`.
@@ -72,8 +94,10 @@ hit without anyone explaining the screen.
 
 ## M6 — Hardening & polish
 
-- PWA manifest + install prompt; landscape display tweaks; small-phone board
-  ergonomics (cell zoom/edit modal).
+- PWA manifest + install prompt; landscape display tweaks.
+- Responsive pass per `06-key-screens.md`: landscape-phone two-pane player
+  layout; tablet/desktop inlining (House board + queue beside a max-width
+  board); cell auto-shrink floor tuning on small phones.
 - Reconnect edge cases: proposer drops mid-proposal, host drops (host migration
   to longest-connected player), display refresh storms.
 - Room GC for abandoned lobbies; heartbeat tuning behind org proxy.

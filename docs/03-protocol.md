@@ -60,6 +60,7 @@ to `forceAdvance`.
 
 | Type | Payload | Notes |
 |---|---|---|
+| `results.advance` ★ | `{}` | Advances the synchronized results reveal (`revealStage`); see `05-ux-flow.md` |
 | `game.playAgain` ★ | `{}` | Same lobby, same settings, fresh boards → `board_fill` |
 | `state.request` | `{}` | Explicit resync (client watchdog after suspected drop) |
 
@@ -150,6 +151,7 @@ interface PrivateCell {
 interface PrivateBoard { cells: PrivateCell[]; poolSlots: (string | null)[]; }
 
 interface ResultsPayload {
+  revealStage: 0 | 1 | 2;   // host-paced: ⓪ winners → ① pool authorship → ② boards + share
   winners: string[];                                  // playerIds
   boards: { playerId: string;
             cells: { name: string; authorId: string | null;  // null = self
@@ -174,6 +176,8 @@ interface ResultsPayload {
    (if enabled) else `results`.
 8. Displays cannot mutate anything.
 9. Intents from disconnected/removed players are dropped.
+10. `results.advance`: host-only, `results` phase only, stages advance
+    monotonically; when K = 0 the authorship stage (①) is skipped.
 
 ## Wire-size note
 
