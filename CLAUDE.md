@@ -59,7 +59,19 @@ These recur across all docs and should shape any new design work:
 | `docs/05-ux-flow.md` | Routes, screen inventory (player + display), locked flow decisions |
 | `docs/06-key-screens.md` | The two hard screens: board editor & open floor interaction design |
 | `docs/07-design-system.md` | Visual language: colors, three-voice typography (EN+TH), shape, components |
+| `docs/08-deployment.md` | Ship recipe: shared VM + Caddy vhosts, TLS modes, compose, deploy flow |
 | `decks/general.example.json` | Sample topic deck schema (seed decks live in `decks/`) |
+
+## Reference implementation: *ito* at `C:\ito`
+
+The group's previous project (*ito*) is checked out at `C:\ito`, **outside this
+repo** — it is a reference to port from, never code to import. Reusable
+subsystems: WS session/reconnect handling, `RoomManager`/room lifecycle, the
+client socket store, multi-stage Dockerfile, and the self-hosted-runner deploy
+workflow. Every ported file changes at its boundaries: ito hand-duplicates
+wire types between server and client, which is exactly the wart
+`packages/protocol` exists to fix. Its git history is available for
+archaeology (`git -C C:\ito log`).
 
 ## Conventions for new design artifacts
 

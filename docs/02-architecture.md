@@ -131,6 +131,9 @@ routes, reusing the optional OIDC piece from *ito*.
 
 ## Deployment
 
+*(Concrete ship recipe — compose layout, Caddy vhosts, TLS modes, deploy
+flow — lives in `08-deployment.md`.)*
+
 - Multi-stage Dockerfile: build client → build server → slim Bun runtime image
   serving SPA static files, `/api`, and `/ws` from one origin (no CORS, one TLS
   cert, WS same-origin).

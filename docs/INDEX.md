@@ -27,6 +27,7 @@ accounts, join by 4-letter room code.
 | 05 | [`05-ux-flow.md`](05-ux-flow.md) | Routes, phase-renderer model, player & display screen inventories, display-optional principle, locked flow decisions | You need to know what screen exists when, or how devices move through the game |
 | 06 | [`06-key-screens.md`](06-key-screens.md) | Interaction design for the two hard screens: board editor (dump/arrange modes, swap gestures, ready semantics) and open floor (layout stack, takeover, pass confirm); responsive/landscape rules | You're building or changing the board-fill or round-loop UI |
 | 07 | [`07-design-system.md`](07-design-system.md) | Visual language: sticker-bombed-tabletop theme, color tokens + game-state mapping, three-voice typography (Fraunces / Quicksand+Kanit / Baloo 2, Thai included), shape & elevation, component recipes, Tailwind `@theme` quick start | You're styling anything. Light-only for v1 |
+| 08 | [`08-deployment.md`](08-deployment.md) | Ship recipe: shared org VM with *ito* via Caddy vhosts, TLS modes (incl. org certs), compose layout, proxy WS requirements, deploy flow, SQLite backup | You're deploying, or touching proxy/TLS/compose |
 
 Seed topic decks live outside `docs/` in [`../decks/`](../decks/)
 (`general.example.json` shows the deck schema).
