@@ -21,7 +21,7 @@ are the drama here, not just a mechanic).
 ## Monorepo layout (Bun workspaces)
 
 ```
-name-bingo/
+yawbg/
 ├── apps/
 │   ├── server/          Elysia app, RoomManager, Room state machine, sqlite
 │   └── client/          Svelte SPA: /            join & lobby
