@@ -3,7 +3,7 @@
 /* Self-hosted fonts (docs/07-design-system.md) — Latin leads each stack, the
    Thai companion (Taviraj / Kanit) supplies Thai glyphs via font fallback. */
 @import "@fontsource-variable/fraunces/wght.css";
-@import "@fontsource-variable/quicksand/wght.css";
+@import "@fontsource-variable/inter/wght.css";
 @import "@fontsource-variable/baloo-2/wght.css";
 @import "@fontsource/taviraj/400.css";
 @import "@fontsource/taviraj/600.css";
@@ -14,7 +14,10 @@
 @import "@fontsource/kanit/700.css";
 @import "@fontsource/kanit/800.css";
 
-@theme {
+/* `static` so every token reaches the browser. Without it Tailwind tree-shakes
+   any theme variable no utility happens to reference, and tokens outside its
+   known namespaces (--duration-*, --spacing-unit) are dropped entirely. */
+@theme static {
   /* Colors */
   --color-cream-blush: #ffe9ce;
   --color-paper-white: #ffffff;
@@ -23,15 +26,15 @@
   --color-near-black: #101010;
   --color-mist-gray: #dddddd;
   --color-pale-gray: #cccccc;
-  --color-electric-violet: #8a53ff;
+  --color-electric-violet: #7534e8;
   --color-coral-blaze: #fd4b38;
   --color-sunburst-yellow: #ffd80c;
-  --color-lime-spark: #3ccb09;
+  --color-aqua-pop: #0fd9c0;
   --color-deep-indigo: #0500a3;
 
   /* Typography — voices (variable-font family names carry a " Variable" suffix) */
   --font-game: 'Fraunces Variable', 'Taviraj', serif;
-  --font-ui: 'Quicksand Variable', 'Kanit', sans-serif;
+  --font-ui: 'Inter Variable', 'Kanit', sans-serif;
   --font-shout: 'Baloo 2 Variable', 'Kanit', sans-serif;
 
   /* Type ramp (player view; display view scales up per 07 ramp table) */
@@ -53,12 +56,42 @@
   --radius-card: 15px;
   --radius-pill: 999px;
 
-  /* Elevation — the only shadow in the system */
-  --shadow-ring: 0 0 0 2px #ffd80c;
+  /* Elevation — the only shadow in the system.
+     Yellow is the brand signal; ink carries the contrast (17.8:1 on cream).
+     Never ship the yellow band alone — it is 1.18:1 against the canvas. */
+  --shadow-ring: 0 0 0 2px #ffd80c, 0 0 0 4px #000000;
+
+  /* Motion */
+  --duration-micro: 150ms;
+  --duration-state: 250ms;
+  --duration-showpiece: 400ms;
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 }
 
 body {
   background-color: var(--color-cream-blush);
   color: var(--color-ink-black);
   font-family: var(--font-ui);
+}
+
+/* The die-cut ring is the focus indicator (docs/07). The ink band carries the
+   17.8:1 contrast against cream that the yellow band alone cannot. */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-ring);
+}
+
+/* Anything that counts holds its width as values change (docs/07). */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

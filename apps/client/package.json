@@ -21,7 +21,7 @@
   "dependencies": {
     "@fontsource-variable/baloo-2": "^5.2.7",
     "@fontsource-variable/fraunces": "^5.2.9",
-    "@fontsource-variable/quicksand": "^5.2.10",
+    "@fontsource-variable/inter": "^5.2.8",
     "@fontsource/kanit": "^5.2.8",
     "@fontsource/taviraj": "^5.2.8"
   }

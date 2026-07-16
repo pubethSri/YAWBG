@@ -8,17 +8,17 @@
   <div class="mb-2 flex items-center gap-2 font-ui text-body-sm">
     <span
       class="h-2 w-2 rounded-full"
-      class:bg-lime-spark={player.connected}
+      class:bg-aqua-pop={player.connected}
       class:bg-mist-gray={!player.connected}
     ></span>
     <span class="font-semibold">{player.name}</span>
     {#if player.isHost}
-      <span class="rounded-[var(--radius-tag)] bg-electric-violet px-1.5 py-0.5 text-[10px] font-semibold text-paper-white">
+      <span class="rounded-[var(--radius-tag)] bg-electric-violet px-1.5 py-0.5 text-caption font-semibold text-paper-white">
         host
       </span>
     {/if}
     {#if player.fillDone}
-      <span class="ml-auto rounded-[var(--radius-tag)] bg-lime-spark px-1.5 py-0.5 text-[10px] font-semibold">
+      <span class="ml-auto rounded-[var(--radius-tag)] bg-aqua-pop px-1.5 py-0.5 text-caption font-semibold text-ink-black">
         ready
       </span>
     {/if}

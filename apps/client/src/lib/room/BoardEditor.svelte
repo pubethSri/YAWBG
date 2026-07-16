@@ -151,7 +151,7 @@
     </div>
 
     {#if me.fillDone}
-      <div class="rounded-[var(--radius-card)] border-2 border-lime-spark bg-paper-white p-4 text-center font-ui">
+      <div class="rounded-[var(--radius-card)] border-2 border-aqua-pop bg-paper-white p-4 text-center font-ui">
         <p class="font-semibold">Ready — waiting for the table</p>
         <p class="text-body-sm text-slate-gray">{readyCount}/{totalCount} ready</p>
         <button
@@ -244,7 +244,7 @@
           <div
             role="button"
             tabindex="0"
-            class="relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-[var(--radius-tag)] border border-near-black p-1 text-center font-ui text-[11px] leading-tight"
+            class="relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-[var(--radius-tag)] border border-near-black p-1 text-center font-ui text-caption leading-tight"
             class:bg-paper-white={cell.name !== null}
             class:bg-cream-blush={cell.name === null}
             class:border-dashed={cell.name === null}
@@ -281,7 +281,7 @@
         <div class="flex flex-wrap gap-1.5">
           {#each board.poolSlots as slot, i (i)}
             <button
-              class="rounded-[var(--radius-tag)] border border-near-black bg-lime-spark/20 px-2 py-1.5 font-ui text-[11px]"
+              class="rounded-[var(--radius-tag)] border border-near-black bg-paper-white px-2 py-1.5 font-ui text-caption"
               onclick={() => (mode === "arrange" ? openEdit("pool", i) : undefined)}
             >
               {slot ?? "empty"}
@@ -293,8 +293,8 @@
 
     {#if !me.fillDone}
       <button
-        class="rounded-[var(--radius-button)] px-4 py-3 font-ui text-body font-bold text-paper-white disabled:bg-mist-gray disabled:text-slate-gray"
-        class:bg-lime-spark={isComplete}
+        class="rounded-[var(--radius-button)] px-4 py-3 font-ui text-body font-bold text-ink-black disabled:bg-mist-gray disabled:text-slate-gray"
+        class:bg-aqua-pop={isComplete}
         class:bg-mist-gray={!isComplete}
         disabled={!isComplete}
         onclick={toggleReady}

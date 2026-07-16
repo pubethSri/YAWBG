@@ -53,7 +53,7 @@
         <li class="flex items-center gap-2 font-ui text-body">
           <span
             class="h-2.5 w-2.5 rounded-full"
-            class:bg-lime-spark={p.connected}
+            class:bg-aqua-pop={p.connected}
             class:bg-mist-gray={!p.connected}
           ></span>
           <span>{p.name}</span>
