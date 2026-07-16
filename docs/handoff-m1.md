@@ -118,8 +118,30 @@ own pool names; boards look right on phones.
 
 ## Definition of done
 
-The M1 exit test, minus real phones: 3 browser tabs fill boards with `K = 5`
-`middleRow`; after `distribute`, no player holds their own pool name and each
-holds exactly 5 pool names; the styled board editor (dump + arrange, ready
-semantics) works on a phone viewport; other players show as status grids;
-`bun test` + `bun run check` green.
+Two layers, matching the testing split above:
+
+- **Automated (Claude):** `bun test` + `bun run check` green, plus a scripted
+  3-client fill + `distribute` proving no player receives their own pool name and
+  each receives exactly `K`. Claude uses browser tabs as phone stand-ins here
+  only because it can't hold a device — not a limitation on the manual test.
+- **Manual (user), on real devices:** since M1 is the first mobile-first styled
+  milestone, run it on actual phones + an iPad, not just tabs. 3 phones fill
+  boards with `K = 5` `middleRow`; the styled board editor (dump + arrange, ready
+  semantics) works under a thumb on a real phone; other players render as status
+  grids; after `distribute` nobody holds their own pool name and each holds
+  exactly 5.
+
+### Testing on real phones / iPad (same Wi-Fi)
+
+The server binds `0.0.0.0` and the client derives its WS URL from `location.host`,
+so LAN devices work with zero extra config:
+
+1. On the PC: `bun run build`, then `bun run dev:server` (single origin on :3000).
+2. Find the PC's LAN IP (`ipconfig` → IPv4, e.g. `192.168.1.x`).
+3. On first run, allow the Windows Firewall prompt for Bun on **private** networks.
+4. On each device on the same Wi-Fi: open `http://<PC-IP>:3000/` (player) or
+   `http://<PC-IP>:3000/display/CODE` (display). WS is same-origin, so plain
+   `http`/`ws` over the LAN just works — no TLS needed for local testing.
+   - To iterate on the styled editor with **Vite HMR** directly on a phone
+     (:5173), set `server.host: true` in `apps/client/vite.config.ts`; the
+     :3000 build path above needs no Vite change.
