@@ -71,7 +71,7 @@ to `forceAdvance`.
 | `session.created` | Joining socket | `{ code, playerId, token }` (also on `room.join`) |
 | `room.state` | Everyone in room | `PublicRoomState` (full snapshot, on every change) |
 | `player.board` | Owner only | `PrivateBoard` (on own-board change and on resync) |
-| `error` | Offending socket | `{ code: ErrorCode, message }` — e.g. `BAD_MESSAGE`, `WRONG_PHASE`, `NOT_HOST`, `CELL_LOCKED`, `ALREADY_RESOLVED`, `ROOM_NOT_FOUND`, `VERSION_MISMATCH`, `NAME_TAKEN`? (no — duplicate player display names get a numeric suffix instead) |
+| `error` | Offending socket | `{ code: ErrorCode, message }` — e.g. `BAD_MESSAGE`, `WRONG_PHASE`, `NOT_HOST`, `CELL_LOCKED`, `ALREADY_RESOLVED`, `ROOM_NOT_FOUND`, `ROOM_FULL`, `VERSION_MISMATCH`, `SESSION_INVALID` (bad/expired resume token), `NAME_TAKEN`? (no — duplicate player display names get a numeric suffix instead) |
 
 Everything renderable (proposal queue changes, House hits, phase transitions,
 bingo events) is *derived from consecutive `room.state` snapshots* — no separate
@@ -132,7 +132,7 @@ interface PublicRoomState {
   phase: Phase;
   settings: Settings;
   players: PublicPlayer[];
-  house: HousePublic;
+  house: HousePublic | null;         // null before distribute
   round: {
     number: number;
     drawnNumbers: number[];          // this round (length = drawsPerRound)

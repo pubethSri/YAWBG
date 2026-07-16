@@ -101,7 +101,8 @@ services:
     networks: [edge]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/healthz"]
+      # oven/bun:1 ships no wget/curl; bun itself is the probe
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
       interval: 30s
 volumes:
   yawbg-data:

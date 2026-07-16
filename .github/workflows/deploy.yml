@@ -1,0 +1,23 @@
+# Deploys YAWBG on the org VM via the self-hosted runner (same pattern as ito).
+#
+# The `push` trigger stays commented out until the runner is registered on the
+# VM — enabling it earlier queues a run forever on every push to main.
+name: Deploy
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Pull and redeploy
+        run: |
+          cd "$DEPLOY_DIR"
+          git pull origin main
+          docker compose -f deploy/compose.yml up -d --build
+        env:
+          # Set DEPLOY_DIR as a repo variable once the VM checkout exists.
+          DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}

@@ -2,18 +2,33 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: design phase — no code yet
+## Project status: implementation started — M0 shipped
 
-This repo currently contains only design documents. Everything in `docs/` is a
-design artifact for **YAWBG** (double meaning: "Yet Another Web Board Game" /
-"Yours Awesome Web BinGo"; repo slug `yawbg`). The current activity is
-producing and refining more design artifacts — game design, website/UX direction,
-screen flows — **before** implementation starts. Do not scaffold code unless the
-user asks for it.
+The design phase is complete (`docs/` holds the artifacts) and **M0 — the
+skeleton milestone — is built and its exit test passes.** The repo is now a Bun
+workspaces monorepo alongside the design docs. Next up is **M1 — Lobby & board
+fill** (see `docs/04-roadmap.md` and `docs/handoff-m1.md`). Build milestone by
+milestone; don't design or build against the roadmap's deferred lists without
+flagging it.
 
-There are no build, lint, or test commands yet. When implementation begins, the
-planned stack is Bun workspaces + Elysia server + Svelte 5 (runes) + Tailwind v4
+The stack is Bun workspaces + Elysia server + Svelte 5 (runes) + Tailwind v4
 client + a shared `packages/protocol` zod package (see `docs/02-architecture.md`).
+
+Commands (run from the repo root; requires Bun):
+
+| Command | Does |
+|---|---|
+| `bun install` | Install all workspaces (single root `bun.lock`) |
+| `bun test` | Protocol round-trip + server WS integration tests |
+| `bun run check` | `tsc --noEmit` (server+protocol) and `svelte-check` (client) |
+| `bun run dev:server` | Elysia server on :3000 (serves `apps/client/dist` + `/ws` + `/healthz`) |
+| `bun run dev:client` | Vite dev server on :5173 (proxies `/ws` to :3000) |
+| `bun run build` | Build the client SPA into `apps/client/dist` |
+
+`docker build -t yawbg .` builds the multi-stage image; `deploy/compose.yml` and
+`.github/workflows/deploy.yml` exist but the org-VM cutover is a separate
+coordinated session (see `docs/08-deployment.md`). No wire type may be declared
+outside `packages/protocol` — zod schemas are the single source of truth.
 
 ## What the game is (read `docs/01-game-design.md` for full rules)
 

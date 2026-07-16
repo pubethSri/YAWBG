@@ -1,0 +1,11 @@
+.git
+.github
+.claude
+node_modules
+**/node_modules
+**/dist
+docs
+decks
+deploy
+*.md
+.env

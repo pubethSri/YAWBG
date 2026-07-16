@@ -32,6 +32,14 @@ accounts, join by 4-letter room code.
 Seed topic decks live outside `docs/` in [`../decks/`](../decks/)
 (`general.example.json` shows the deck schema).
 
+## Implementation status
+
+Design is complete and the build has started. **M0 (skeleton) is shipped** — the
+repo is now a Bun workspaces monorepo (`apps/server`, `apps/client`,
+`packages/protocol`) beside these docs. See `04-roadmap.md` for milestone status
+and `../CLAUDE.md` for the command list. Next milestone: **M1 — Lobby & board
+fill**.
+
 ## Cross-cutting facts (asserted across multiple artifacts)
 
 - **Phase machine:** `lobby → board_fill → distribute → (draw → open_floor)* →

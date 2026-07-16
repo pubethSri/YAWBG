@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.sqlite
+.env
+
+# Claude Code local runtime files (keep .claude/launch.json tracked)
+.claude/scheduled_tasks.lock
+.claude/settings.local.json

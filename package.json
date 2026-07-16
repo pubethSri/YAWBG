@@ -1,0 +1,12 @@
+{
+  "name": "yawbg",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:server": "bun run --cwd apps/server dev",
+    "dev:client": "bun run --cwd apps/client dev",
+    "build": "bun run --cwd apps/client build",
+    "test": "bun test",
+    "check": "bun run --cwd apps/server check && bun run --cwd apps/client check"
+  }
+}

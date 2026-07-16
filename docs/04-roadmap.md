@@ -16,7 +16,7 @@ Design-phase artifacts, in their intended order:
 The design runway is complete. All styling work from M1 onward follows
 `07-design-system.md` (light-only for v1); M0 remains visual-free plumbing.
 
-## M0 — Skeleton *(the boring milestone that saves the project)*
+## M0 — Skeleton *(the boring milestone that saves the project)* ✅ done
 
 - Bun workspaces monorepo: `apps/server`, `apps/client`, `packages/protocol`.
 - Protocol package with envelope schema, `PROTOCOL_VERSION`, `room.create` /
