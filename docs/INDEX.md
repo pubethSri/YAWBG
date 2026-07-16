@@ -34,11 +34,11 @@ Seed topic decks live outside `docs/` in [`../decks/`](../decks/)
 
 ## Implementation status
 
-Design is complete and the build has started. **M0 (skeleton) is shipped** — the
-repo is now a Bun workspaces monorepo (`apps/server`, `apps/client`,
-`packages/protocol`) beside these docs. See `04-roadmap.md` for milestone status
-and `../CLAUDE.md` for the command list. Next milestone: **M1 — Lobby & board
-fill**.
+Design is complete and the build has started. **M0 (skeleton) and M1 (lobby &
+board fill) are shipped** — the repo is now a Bun workspaces monorepo
+(`apps/server`, `apps/client`, `packages/protocol`) beside these docs. See
+`04-roadmap.md` for milestone status and `../CLAUDE.md` for the command list.
+Next milestone: **M2 — Core round loop** (`handoff-m2.md`).
 
 ## Cross-cutting facts (asserted across multiple artifacts)
 
