@@ -2,7 +2,9 @@ import {
   PROTOCOL_VERSION,
   ServerMessageSchema,
   type ClientIntent,
+  type PrivateBoard,
   type PublicRoomState,
+  type Settings,
 } from "@yawbg/protocol";
 
 const SESSION_KEY = "yawbg_session";
@@ -26,6 +28,7 @@ function loadSession(): Session | null {
 class GameSocket {
   status = $state<"idle" | "connecting" | "open" | "closed">("idle");
   roomState = $state<PublicRoomState | null>(null);
+  privateBoard = $state<PrivateBoard | null>(null);
   lastError = $state<{ code: string; message: string } | null>(null);
   session = $state<Session | null>(loadSession());
 
@@ -95,6 +98,9 @@ class GameSocket {
         this.roomState = msg.payload;
         this.resuming = false;
         break;
+      case "player.board":
+        this.privateBoard = msg.payload;
+        break;
       case "error":
         this.lastError = msg.payload;
         if (msg.payload.code === "VERSION_MISMATCH") {
@@ -146,6 +152,34 @@ class GameSocket {
     }
   }
 
+  updateSettings(settings: Partial<Settings>): void {
+    this.send({ type: "lobby.updateSettings", payload: { settings } });
+  }
+
+  startGame(): void {
+    this.send({ type: "lobby.start", payload: {} });
+  }
+
+  writeCell(cellIndex: number, name: string): void {
+    this.send({ type: "fill.writeCell", payload: { cellIndex, name } });
+  }
+
+  clearCell(cellIndex: number): void {
+    this.send({ type: "fill.clearCell", payload: { cellIndex } });
+  }
+
+  writePool(slot: number, name: string): void {
+    this.send({ type: "fill.writePool", payload: { slot, name } });
+  }
+
+  setDone(done: boolean): void {
+    this.send({ type: "fill.setDone", payload: { done } });
+  }
+
+  forceStart(): void {
+    this.send({ type: "fill.forceStart", payload: {} });
+  }
+
   leave(): void {
     // Only forget the seat if the server actually heard us; otherwise keep the
     // session so grace + resume can still reclaim or clean up the seat rather
@@ -158,6 +192,7 @@ class GameSocket {
   private clearSession(): void {
     this.session = null;
     this.roomState = null;
+    this.privateBoard = null;
     sessionStorage.removeItem(SESSION_KEY);
   }
 }

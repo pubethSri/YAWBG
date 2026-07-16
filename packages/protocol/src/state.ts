@@ -75,6 +75,19 @@ export const RoundStateSchema = z.object({
 });
 export type RoundState = z.infer<typeof RoundStateSchema>;
 
+export const PrivateCellSchema = z.object({
+  name: z.string().nullable(),
+  fromPool: z.boolean(), // author hidden until results
+  locked: LockTagSchema.nullable(),
+});
+export type PrivateCell = z.infer<typeof PrivateCellSchema>;
+
+export const PrivateBoardSchema = z.object({
+  cells: z.array(PrivateCellSchema).length(25),
+  poolSlots: z.array(z.string().nullable()),
+});
+export type PrivateBoard = z.infer<typeof PrivateBoardSchema>;
+
 export const PublicRoomStateSchema = z.object({
   protocolVersion: z.number().int(),
   code: RoomCodeSchema,

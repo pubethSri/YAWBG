@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-export const SettingsSchema = z.object({
+// Unrefined shape, exported so intents.ts can build a `.partial()` from it —
+// `SettingsSchema` below wraps it in `.refine()`, and ZodEffects has no `.partial()`.
+export const SettingsObjectSchema = z.object({
   numberPoolSize: z.union([z.literal(75), z.literal(100)]),
   drawsPerRound: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   houseFreeCenter: z.boolean(),
@@ -13,6 +15,11 @@ export const SettingsSchema = z.object({
   lastCall: z.boolean(),
   deckIds: z.array(z.string()),
 });
+
+export const SettingsSchema = SettingsObjectSchema.refine(
+  (s) => s.sabotagePlacement !== "middleRow" || s.sabotageCells === 5,
+  { message: "sabotagePlacement 'middleRow' requires sabotageCells === 5" },
+);
 export type Settings = z.infer<typeof SettingsSchema>;
 
 // Defaults per the lobby-options table in docs/01-game-design.md.

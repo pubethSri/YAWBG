@@ -116,13 +116,16 @@ export function createApp(opts: AppOptions = {}) {
             type: "session.created",
             payload: { code: room.code, playerId: player.id, token: player.token },
           });
-          room.broadcast();
+          room.notifyAll();
           break;
         }
         case "room.join": {
           const room = manager.get(intent.payload.code);
           if (!room) {
             return void sendError(ws, "ROOM_NOT_FOUND", `no room ${intent.payload.code}`);
+          }
+          if (room.phase !== "lobby") {
+            return void sendError(ws, "WRONG_PHASE", "this room has already started");
           }
           if (room.players.length >= MAX_PLAYERS) {
             return void sendError(ws, "ROOM_FULL", `room is full (${MAX_PLAYERS} players)`);
@@ -133,7 +136,7 @@ export function createApp(opts: AppOptions = {}) {
             type: "session.created",
             payload: { code: room.code, playerId: player.id, token: player.token },
           });
-          room.broadcast();
+          room.notifyAll();
           break;
         }
         case "display.join": {
@@ -163,7 +166,7 @@ export function createApp(opts: AppOptions = {}) {
             }
           }
           sockets.set(ws.id, { code: room.code, playerId: player.id });
-          break; // resume() broadcast the fresh state to everyone, including this socket
+          break; // resume() notifies everyone with the fresh state, including this socket
         }
         case "room.leave": {
           const { code, playerId } = session as { code: string; playerId: string };
@@ -171,14 +174,33 @@ export function createApp(opts: AppOptions = {}) {
           const room = manager.get(code);
           if (!room) return;
           room.removePlayer(playerId);
-          room.broadcast();
+          room.notifyAll();
           break;
         }
         case "state.request": {
-          const { code } = session!;
-          const room = manager.get(code);
+          const s = session!;
+          const room = manager.get(s.code);
           if (!room) return;
           send(ws, { type: "room.state", payload: room.getPublicState() });
+          if (!("role" in s)) {
+            const player = room.getPlayer(s.playerId);
+            if (player) send(ws, { type: "player.board", payload: room.getPrivateBoard(player) });
+          }
+          break;
+        }
+        case "lobby.updateSettings":
+        case "lobby.start":
+        case "fill.writeCell":
+        case "fill.clearCell":
+        case "fill.writePool":
+        case "fill.setDone":
+        case "fill.forceStart": {
+          const { code, playerId } = session as { code: string; playerId: string };
+          const room = manager.get(code);
+          if (!room) return;
+          const result = room.handleIntent(playerId, intent);
+          if (!result.ok) return void sendError(ws, result.code, result.message);
+          room.notifyAll();
           break;
         }
       }

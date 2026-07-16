@@ -53,15 +53,31 @@ class TestClient {
     });
   }
 
+  // Player sockets get a player.board frame alongside every room.state (per
+  // notifyAll); these helpers drain past any of the "other" frame type so
+  // assertions don't care how many stray board/state frames piled up.
+  private async nextSkipping(skipType: ServerMessage["type"]): Promise<ServerMessage> {
+    let msg = await this.next();
+    while (msg.type === skipType) msg = await this.next();
+    return msg;
+  }
+
   async expectState(): Promise<Extract<ServerMessage, { type: "room.state" }>["payload"]> {
-    const msg = await this.next();
+    const msg = await this.nextSkipping("player.board");
     expect(msg.type).toBe("room.state");
     if (msg.type !== "room.state") throw new Error("unreachable");
     return msg.payload;
   }
 
+  async expectPlayerBoard(): Promise<Extract<ServerMessage, { type: "player.board" }>["payload"]> {
+    const msg = await this.nextSkipping("room.state");
+    expect(msg.type).toBe("player.board");
+    if (msg.type !== "player.board") throw new Error("unreachable");
+    return msg.payload;
+  }
+
   async expectError(code: string): Promise<void> {
-    const msg = await this.next();
+    const msg = await this.nextSkipping("player.board");
     expect(msg).toMatchObject({ type: "error", payload: { code } });
   }
 

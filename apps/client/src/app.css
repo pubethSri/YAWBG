@@ -1,1 +1,64 @@
 @import "tailwindcss";
+
+/* Self-hosted fonts (docs/07-design-system.md) — Latin leads each stack, the
+   Thai companion (Taviraj / Kanit) supplies Thai glyphs via font fallback. */
+@import "@fontsource-variable/fraunces/wght.css";
+@import "@fontsource-variable/quicksand/wght.css";
+@import "@fontsource-variable/baloo-2/wght.css";
+@import "@fontsource/taviraj/400.css";
+@import "@fontsource/taviraj/600.css";
+@import "@fontsource/taviraj/700.css";
+@import "@fontsource/kanit/400.css";
+@import "@fontsource/kanit/500.css";
+@import "@fontsource/kanit/600.css";
+@import "@fontsource/kanit/700.css";
+@import "@fontsource/kanit/800.css";
+
+@theme {
+  /* Colors */
+  --color-cream-blush: #ffe9ce;
+  --color-paper-white: #ffffff;
+  --color-ink-black: #000000;
+  --color-slate-gray: #666666;
+  --color-near-black: #101010;
+  --color-mist-gray: #dddddd;
+  --color-pale-gray: #cccccc;
+  --color-electric-violet: #8a53ff;
+  --color-coral-blaze: #fd4b38;
+  --color-sunburst-yellow: #ffd80c;
+  --color-lime-spark: #3ccb09;
+  --color-deep-indigo: #0500a3;
+
+  /* Typography — voices (variable-font family names carry a " Variable" suffix) */
+  --font-game: 'Fraunces Variable', 'Taviraj', serif;
+  --font-ui: 'Quicksand Variable', 'Kanit', sans-serif;
+  --font-shout: 'Baloo 2 Variable', 'Kanit', sans-serif;
+
+  /* Type ramp (player view; display view scales up per 07 ramp table) */
+  --text-caption: 12px;
+  --text-body-sm: 14px;
+  --text-body: 16px;
+  --text-heading: 18px;
+  --text-topic: 28px;
+  --text-verdict: 32px;
+  --text-number: 48px;
+  --text-hero: 64px;
+
+  /* Spacing (base unit 6px) */
+  --spacing-unit: 6px;
+
+  /* Radii — the whole vocabulary */
+  --radius-button: 5px;
+  --radius-tag: 10px;
+  --radius-card: 15px;
+  --radius-pill: 999px;
+
+  /* Elevation — the only shadow in the system */
+  --shadow-ring: 0 0 0 2px #ffd80c;
+}
+
+body {
+  background-color: var(--color-cream-blush);
+  color: var(--color-ink-black);
+  font-family: var(--font-ui);
+}

@@ -31,7 +31,7 @@ The design runway is complete. All styling work from M1 onward follows
 **Exit test:** two phones + one display join a room, one phone locks its screen
 for 60 s and resumes its seat.
 
-## M1 — Lobby & board fill
+## M1 — Lobby & board fill ✅ done
 
 - Settings UI (host) + `SettingsSchema` validation; player list; start gating.
 - Private board editor per `06-key-screens.md`: dump mode (rapid entry,

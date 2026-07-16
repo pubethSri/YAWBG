@@ -6,6 +6,12 @@
       "runtimeExecutable": "bun",
       "runtimeArgs": ["--watch", "apps/server/src/index.ts"],
       "port": 3000
+    },
+    {
+      "name": "yawbg-client",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--cwd", "apps/client", "dev"],
+      "port": 5173
     }
   ]
 }

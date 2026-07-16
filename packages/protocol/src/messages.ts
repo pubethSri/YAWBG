@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PublicRoomStateSchema, RoomCodeSchema } from "./state";
+import { PrivateBoardSchema, PublicRoomStateSchema, RoomCodeSchema } from "./state";
 
 export const ErrorCodeSchema = z.enum([
   "BAD_MESSAGE",
@@ -9,6 +9,7 @@ export const ErrorCodeSchema = z.enum([
   "SESSION_INVALID",
   "WRONG_PHASE",
   "NOT_HOST",
+  "ALREADY_RESOLVED",
 ]);
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 
@@ -26,6 +27,12 @@ export const RoomStateMessageSchema = z.object({
   payload: PublicRoomStateSchema,
 });
 
+// Owner only — carries the names that never travel on anyone else's socket.
+export const PlayerBoardMessageSchema = z.object({
+  type: z.literal("player.board"),
+  payload: PrivateBoardSchema,
+});
+
 export const ErrorMessageSchema = z.object({
   type: z.literal("error"),
   payload: z.object({ code: ErrorCodeSchema, message: z.string() }),
@@ -34,6 +41,7 @@ export const ErrorMessageSchema = z.object({
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   SessionCreatedMessageSchema,
   RoomStateMessageSchema,
+  PlayerBoardMessageSchema,
   ErrorMessageSchema,
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

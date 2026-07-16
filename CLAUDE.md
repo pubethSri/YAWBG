@@ -2,14 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: implementation started — M0 shipped
+## Project status: implementation started — M0 and M1 shipped
 
-The design phase is complete (`docs/` holds the artifacts) and **M0 — the
-skeleton milestone — is built and its exit test passes.** The repo is now a Bun
-workspaces monorepo alongside the design docs. Next up is **M1 — Lobby & board
-fill** (see `docs/04-roadmap.md` and `docs/handoff-m1.md`). Build milestone by
+The design phase is complete (`docs/` holds the artifacts). **M0 — the skeleton
+milestone** and **M1 — lobby & board fill** are both built and their exit tests
+pass. The repo is now a Bun workspaces monorepo alongside the design docs. Next
+up is **M2 — Core round loop** (see `docs/04-roadmap.md`). Build milestone by
 milestone; don't design or build against the roadmap's deferred lists without
 flagging it.
+
+M1 notes for future sessions: the `distribute` phase is the resting state
+until M2 builds the draw engine — there's no `draw` phase to auto-advance into
+yet, so the client's pool-deal reveal screen doesn't time out or navigate away
+on its own. Pool distribution uses a round-robin *offset*: each player's whole
+K-name block rotates to exactly one other player (per `docs/01-game-design.md`'s
+"round-robin offset" wording), not a full cross-player shuffle of individual
+names. The board editor implements tap-tap-to-swap (arrange mode's documented
+accessible path) but not pointer-drag-to-swap; revisit if playtesting shows
+tap-tap alone feels wrong on a real phone.
 
 The stack is Bun workspaces + Elysia server + Svelte 5 (runes) + Tailwind v4
 client + a shared `packages/protocol` zod package (see `docs/02-architecture.md`).
