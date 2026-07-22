@@ -7,6 +7,8 @@ import {
   type ErrorCode,
   type ServerMessage,
 } from "@yawbg/protocol";
+import { DeckStore, type TopicSource } from "./DeckStore";
+import { openDb } from "./db";
 import { MAX_PLAYERS, type Socket } from "./Room";
 import { RoomManager } from "./RoomManager";
 
@@ -14,6 +16,18 @@ export interface AppOptions {
   graceMs?: number;
   /** Directory of the built SPA; null skips static routes (tests). */
   clientDist?: string | null;
+  /** SQLite file; ":memory:" in tests. Ignored when `decks` is supplied. */
+  dbPath?: string;
+  /** Directory of deck JSON to seed; null skips seeding. */
+  decksDir?: string | null;
+  /** Test override — bypasses SQLite entirely. */
+  decks?: TopicSource;
+  /** Pool-deal reveal window before auto-advancing into the first draw. */
+  distributeMs?: number;
+  /** Draw-moment window before the floor opens. */
+  drawMs?: number;
+  /** Ping interval; two missed pongs closes the socket. 0 disables (tests). */
+  heartbeatMs?: number;
 }
 
 type SocketSession =
@@ -26,17 +40,51 @@ const send = (ws: Socket, message: ServerMessage) =>
 const sendError = (ws: Socket, code: ErrorCode, message: string) =>
   send(ws, { type: "error", payload: { code, message } });
 
+// Native WS ping/pong: browsers answer automatically, so liveness costs no
+// protocol surface. Elysia wraps Bun's socket, so the method may sit on either.
+function pingSocket(ws: any): void {
+  try {
+    if (typeof ws.ping === "function") ws.ping();
+    else if (typeof ws.raw?.ping === "function") ws.raw.ping();
+  } catch {
+    /* socket already gone; the close handler will clean up */
+  }
+}
+
 export function createApp(opts: AppOptions = {}) {
   const graceMs = opts.graceMs ?? 120_000;
+  const heartbeatMs = opts.heartbeatMs ?? 30_000;
   const clientDist =
     opts.clientDist === undefined
       ? join(import.meta.dir, "../../client/dist")
       : opts.clientDist;
 
-  const manager = new RoomManager(graceMs);
+  let decks: TopicSource;
+  let deckList: () => unknown;
+  if (opts.decks) {
+    decks = opts.decks;
+    deckList = () => [];
+  } else {
+    const store = new DeckStore(openDb(opts.dbPath ?? process.env.DB_PATH ?? "yawbg.sqlite"));
+    const decksDir =
+      opts.decksDir === undefined ? join(import.meta.dir, "../../../decks") : opts.decksDir;
+    if (decksDir) store.seedFromDir(decksDir);
+    decks = store;
+    deckList = () => store.list();
+  }
+
+  const manager = new RoomManager({
+    graceMs,
+    decks,
+    distributeMs: opts.distributeMs,
+    drawMs: opts.drawMs,
+  });
   const sockets = new Map<string, SocketSession>();
 
-  const app = new Elysia().get("/healthz", () => ({ ok: true }));
+  const app = new Elysia()
+    .get("/healthz", () => ({ ok: true }))
+    // No auth: the lobby picker needs this. The deck *editor* is OIDC-gated (M5).
+    .get("/api/decks", () => deckList());
 
   if (clientDist && existsSync(clientDist)) {
     const index = () => Bun.file(join(clientDist, "index.html"));
@@ -62,8 +110,37 @@ export function createApp(opts: AppOptions = {}) {
     console.warn(`client dist not found at ${clientDist} - serving /ws and /healthz only`);
   }
 
+  // Without this, a socket that dies without a clean close is never noticed
+  // (idleTimeout is an hour), the grace timer never starts, and a silently-dead
+  // proposer holds the queue front forever. M6 owns tuning it behind the proxy.
+  const live = new Map<string, { ws: any; lastPong: number }>();
+  if (heartbeatMs > 0) {
+    const timer = setInterval(() => {
+      const deadline = Date.now() - heartbeatMs * 2.5;
+      for (const entry of live.values()) {
+        if (entry.lastPong < deadline) {
+          try {
+            entry.ws.close();
+          } catch {
+            /* already gone */
+          }
+          continue;
+        }
+        pingSocket(entry.ws);
+      }
+    }, heartbeatMs);
+    timer.unref?.(); // never keep the process alive on our account
+  }
+
   app.ws("/ws", {
     idleTimeout: 3600,
+    open(ws: any) {
+      live.set(ws.id, { ws, lastPong: Date.now() });
+    },
+    pong(ws: any) {
+      const entry = live.get(ws.id);
+      if (entry) entry.lastPong = Date.now();
+    },
     message(ws: any, raw: unknown) {
       let data: unknown = raw;
       if (typeof raw === "string") {
@@ -194,7 +271,12 @@ export function createApp(opts: AppOptions = {}) {
         case "fill.clearCell":
         case "fill.writePool":
         case "fill.setDone":
-        case "fill.forceStart": {
+        case "fill.forceStart":
+        case "round.propose":
+        case "round.confirm":
+        case "round.withdraw":
+        case "round.pass":
+        case "round.forceAdvance": {
           const { code, playerId } = session as { code: string; playerId: string };
           const room = manager.get(code);
           if (!room) return;
@@ -206,6 +288,7 @@ export function createApp(opts: AppOptions = {}) {
       }
     },
     close(ws: any) {
+      live.delete(ws.id);
       const session = sockets.get(ws.id);
       if (!session) return;
       sockets.delete(ws.id);

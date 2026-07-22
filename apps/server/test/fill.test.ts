@@ -1,84 +1,24 @@
 import { describe, expect, test } from "bun:test";
-import { PROTOCOL_VERSION, ServerMessageSchema, type ClientIntent, type ServerMessage } from "@yawbg/protocol";
+import { PROTOCOL_VERSION } from "@yawbg/protocol";
 import { createApp } from "../src/app";
+import { TestClient, fakeDeck } from "./TestClient";
 
-const app = createApp({ graceMs: 300, clientDist: null });
+// distributeMs is large here so the M1 assertions can still observe the
+// `distribute` phase before it auto-advances into the round loop.
+const app = createApp({
+  graceMs: 300,
+  clientDist: null,
+  decks: fakeDeck(),
+  distributeMs: 10_000,
+  heartbeatMs: 0,
+});
 app.listen({ port: 0, hostname: "127.0.0.1" });
-const port = app.server!.port;
+const port = app.server!.port!;
 
 // No afterAll stop: Elysia's stop() blocks on lingering ws sockets under bun test
 // on Windows; the server dies with the test process.
 
-class TestClient {
-  private queue: ServerMessage[] = [];
-  private waiters: ((m: ServerMessage) => void)[] = [];
-
-  private constructor(readonly ws: WebSocket) {}
-
-  static async connect(): Promise<TestClient> {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-    const client = new TestClient(ws);
-    ws.onmessage = (e) => {
-      const msg = ServerMessageSchema.parse(JSON.parse(String(e.data)));
-      const waiter = client.waiters.shift();
-      if (waiter) waiter(msg);
-      else client.queue.push(msg);
-    };
-    await new Promise<void>((resolve, reject) => {
-      ws.onopen = () => resolve();
-      ws.onerror = (e) => reject(e);
-    });
-    return client;
-  }
-
-  send(intent: ClientIntent) {
-    this.ws.send(JSON.stringify(intent));
-  }
-
-  next(timeoutMs = 2000): Promise<ServerMessage> {
-    const queued = this.queue.shift();
-    if (queued) return Promise.resolve(queued);
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("timed out waiting for message")), timeoutMs);
-      this.waiters.push((m) => {
-        clearTimeout(timer);
-        resolve(m);
-      });
-    });
-  }
-
-  // Player sockets get a player.board frame alongside every room.state (per
-  // notifyAll); these helpers drain past any of the "other" frame type so
-  // assertions don't care how many stray board/state frames piled up.
-  private async nextSkipping(skipType: ServerMessage["type"]): Promise<ServerMessage> {
-    let msg = await this.next();
-    while (msg.type === skipType) msg = await this.next();
-    return msg;
-  }
-
-  async expectState(): Promise<Extract<ServerMessage, { type: "room.state" }>["payload"]> {
-    const msg = await this.nextSkipping("player.board");
-    expect(msg.type).toBe("room.state");
-    if (msg.type !== "room.state") throw new Error("unreachable");
-    return msg.payload;
-  }
-
-  async expectPlayerBoard(): Promise<Extract<ServerMessage, { type: "player.board" }>["payload"]> {
-    const msg = await this.nextSkipping("room.state");
-    expect(msg.type).toBe("player.board");
-    if (msg.type !== "player.board") throw new Error("unreachable");
-    return msg.payload;
-  }
-
-  async expectError(code: string): Promise<void> {
-    const msg = await this.nextSkipping("player.board");
-    expect(msg).toMatchObject({ type: "error", payload: { code } });
-  }
-
-  close() {
-    this.ws.close();
-  }
-}
+const connect = () => TestClient.connect(port);
 
 const MIDDLE_ROW = [10, 11, 12, 13, 14];
 
@@ -104,20 +44,20 @@ async function fillPool(all: TestClient[], acting: TestClient, label: string, k:
 
 describe("M1 exit scenario: lobby settings, board fill, distribute", () => {
   test("3 players, K=5 middleRow: nobody receives own pool names, everyone gets exactly 5", async () => {
-    const host = await TestClient.connect();
+    const host = await connect();
     host.send({ type: "room.create", payload: { playerName: "Host", protocolVersion: PROTOCOL_VERSION } });
     const created = await host.next();
     if (created.type !== "session.created") throw new Error("unreachable");
     const code = created.payload.code;
     await host.expectState();
 
-    const p2 = await TestClient.connect();
+    const p2 = await connect();
     p2.send({ type: "room.join", payload: { code, playerName: "P2", protocolVersion: PROTOCOL_VERSION } });
     await p2.next(); // session.created
     await p2.expectState();
     await host.expectState();
 
-    const p3 = await TestClient.connect();
+    const p3 = await connect();
     p3.send({ type: "room.join", payload: { code, playerName: "P3", protocolVersion: PROTOCOL_VERSION } });
     await p3.next();
     await p3.expectState();
@@ -152,7 +92,7 @@ describe("M1 exit scenario: lobby settings, board fill, distribute", () => {
     await p3.expectState();
 
     // room.join after start is rejected (M0-deferred WRONG_PHASE gate).
-    const late = await TestClient.connect();
+    const late = await connect();
     late.send({ type: "room.join", payload: { code, playerName: "Late", protocolVersion: PROTOCOL_VERSION } });
     await late.expectError("WRONG_PHASE");
     late.close();

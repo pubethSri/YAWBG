@@ -180,6 +180,26 @@ class GameSocket {
     this.send({ type: "fill.forceStart", payload: {} });
   }
 
+  propose(cellIndex: number): void {
+    this.send({ type: "round.propose", payload: { cellIndex } });
+  }
+
+  confirmLock(): void {
+    this.send({ type: "round.confirm", payload: {} });
+  }
+
+  withdraw(): void {
+    this.send({ type: "round.withdraw", payload: {} });
+  }
+
+  pass(): void {
+    this.send({ type: "round.pass", payload: {} });
+  }
+
+  forceAdvance(): void {
+    this.send({ type: "round.forceAdvance", payload: {} });
+  }
+
   leave(): void {
     // Only forget the seat if the server actually heard us; otherwise keep the
     // session so grace + resume can still reclaim or clean up the seat rather

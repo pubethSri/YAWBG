@@ -156,6 +156,13 @@ runner** — push to main → runner does `git pull` + `docker compose up -d
 
 ## SQLite care
 
+- **The image ships `decks/`** and the server upserts every `decks/*.json`
+  (skipping `*.example.json`) into SQLite on boot, keyed by the `id` *inside*
+  the file. Seeding is idempotent, so a redeploy refreshes edited seed decks
+  without touching anything else. Without the deck copy the server boots fine
+  but `lobby.start` rejects with "the selected decks have no topics".
+- Live game state is **memory-only** by design (`02-architecture.md`): a
+  restart drops in-progress games. Deploy between sessions, not mid-game.
 - One file on the `yawbg-data` named volume. That is the whole database.
 - Backup: nightly `sqlite3 /data/yawbg.sqlite ".backup /backups/yawbg-$(date +%F).sqlite"`
   (or a plain file copy at idle hours — decks and finished game logs only;

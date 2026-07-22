@@ -10,6 +10,7 @@ export const ErrorCodeSchema = z.enum([
   "WRONG_PHASE",
   "NOT_HOST",
   "ALREADY_RESOLVED",
+  "CELL_LOCKED",
 ]);
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 

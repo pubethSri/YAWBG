@@ -41,6 +41,11 @@ describe("intents", () => {
     { type: "session.resume", payload: { code: "ABCD", playerId: "p1", token: "t", protocolVersion: PROTOCOL_VERSION } },
     { type: "room.leave", payload: {} },
     { type: "state.request", payload: {} },
+    { type: "round.propose", payload: { cellIndex: 7 } },
+    { type: "round.confirm", payload: {} },
+    { type: "round.withdraw", payload: {} },
+    { type: "round.pass", payload: {} },
+    { type: "round.forceAdvance", payload: {} },
   ];
 
   test.each(intents.map((i) => [i.type, i] as const))("%s round-trips", (_type, intent) => {
@@ -88,7 +93,53 @@ describe("PublicRoomState", () => {
     expect(PublicRoomStateSchema.safeParse(bad).success).toBe(false);
   });
 
-  test("PROTOCOL_VERSION is 1", () => {
-    expect(PROTOCOL_VERSION).toBe(1);
+  test("PROTOCOL_VERSION is 2", () => {
+    expect(PROTOCOL_VERSION).toBe(2);
+  });
+
+  test("cellIndex out of range rejected", () => {
+    expect(ClientIntentSchema.safeParse({ type: "round.propose", payload: { cellIndex: 25 } }).success).toBe(false);
+  });
+
+  test("results snapshot parses", () => {
+    const state: PublicRoomState = {
+      ...lobbyState,
+      phase: "results",
+      house: {
+        mode: "full",
+        board: Array.from({ length: 25 }, (_, i) => (i === 12 ? null : i + 1)),
+        freeCenter: true,
+        hits: [12],
+        linesCompleted: 0,
+        bestLineNeeds: 4,
+      },
+      results: {
+        revealStage: 0,
+        winners: ["p1"],
+        boards: [
+          {
+            playerId: "p1",
+            cells: Array.from({ length: 25 }, () => ({ name: "Gordon Ramsay", authorId: null, locked: null })),
+          },
+        ],
+        roundHistory: [
+          {
+            round: 1,
+            drawnNumbers: [12],
+            topicText: "A millionaire",
+            locks: [{ playerId: "p1", name: "Gordon Ramsay", cellIndex: 0 }],
+          },
+        ],
+      },
+    };
+    expect(PublicRoomStateSchema.parse(roundTrip(state))).toEqual(state);
+  });
+
+  test("house board must have exactly 25 cells", () => {
+    const bad = roundTrip({
+      ...lobbyState,
+      house: { mode: "full", board: [1, 2, 3], freeCenter: false, hits: [], linesCompleted: 0 },
+    });
+    expect(PublicRoomStateSchema.safeParse(bad).success).toBe(false);
   });
 });

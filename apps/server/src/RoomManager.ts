@@ -1,16 +1,24 @@
+import type { TopicSource } from "./DeckStore";
 import { Room } from "./Room";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
+export interface RoomOptions {
+  graceMs: number;
+  decks: TopicSource;
+  distributeMs?: number;
+  drawMs?: number;
+}
+
 export class RoomManager {
   private rooms = new Map<string, Room>();
 
-  constructor(private graceMs: number) {}
+  constructor(private opts: RoomOptions) {}
 
   create(): Room {
     const code = this.generateCode();
     const room = new Room(code, {
-      graceMs: this.graceMs,
+      ...this.opts,
       onEmpty: () => this.rooms.delete(code),
     });
     this.rooms.set(code, room);

@@ -22,6 +22,9 @@ export const LockTagSchema = z.object({
 });
 export type LockTag = z.infer<typeof LockTagSchema>;
 
+export const TopicSchema = z.object({ id: z.string(), text: z.string() });
+export type Topic = z.infer<typeof TopicSchema>;
+
 export const PublicCellSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("empty") }),
   z.object({ status: z.literal("filled") }), // name hidden
@@ -45,10 +48,15 @@ export type PublicPlayer = z.infer<typeof PublicPlayerSchema>;
 export const HousePublicSchema = z.discriminatedUnion("mode", [
   z.object({
     mode: z.literal("full"),
-    board: z.array(z.number().int()),
+    // null at index 12 when freeCenter — a real bingo card prints FREE there,
+    // and a number on a free cell would be undrawable dead weight.
+    board: z.array(z.number().int().nullable()).length(25),
     freeCenter: z.boolean(),
-    hits: z.array(z.number().int()),
+    hits: z.array(z.number().int().min(0).max(24)), // cell indices, not numbers
     linesCompleted: z.number().int(),
+    // Sent here as well as in `progress` so the House chip reads the same in
+    // every mode and the client never has to compute lines itself.
+    bestLineNeeds: z.number().int(),
   }),
   z.object({
     mode: z.literal("progress"),
@@ -59,6 +67,9 @@ export const HousePublicSchema = z.discriminatedUnion("mode", [
 ]);
 export type HousePublic = z.infer<typeof HousePublicSchema>;
 
+// `name` is public the moment it's proposed (docs/03) — the sole sanctioned
+// exception to the public/private split: an unlocked name leaves its owner's
+// socket by being copied in here, which getPublicState() emits to everyone.
 export const ProposalSchema = z.object({
   playerId: z.string(),
   cellIndex: z.number().int().min(0).max(24),
@@ -70,7 +81,7 @@ export const RoundStateSchema = z.object({
   number: z.number().int(),
   drawnNumbers: z.array(z.number().int()),
   allDrawn: z.array(z.number().int()),
-  topic: z.object({ id: z.string(), text: z.string() }).nullable(),
+  topic: TopicSchema.nullable(),
   queue: z.array(ProposalSchema),
 });
 export type RoundState = z.infer<typeof RoundStateSchema>;
@@ -88,14 +99,52 @@ export const PrivateBoardSchema = z.object({
 });
 export type PrivateBoard = z.infer<typeof PrivateBoardSchema>;
 
+export const ResultsBoardCellSchema = z.object({
+  name: z.string(),
+  authorId: z.string().nullable(), // null = self; a pool name's author, revealed at last
+  locked: LockTagSchema.nullable(),
+});
+export type ResultsBoardCell = z.infer<typeof ResultsBoardCellSchema>;
+
+export const ResultsBoardSchema = z.object({
+  playerId: z.string(),
+  cells: z.array(ResultsBoardCellSchema).length(25),
+});
+export type ResultsBoard = z.infer<typeof ResultsBoardSchema>;
+
+export const RoundHistoryEntrySchema = z.object({
+  round: z.number().int(),
+  drawnNumbers: z.array(z.number().int()),
+  topicText: z.string(),
+  locks: z.array(
+    z.object({
+      playerId: z.string(),
+      name: z.string(),
+      cellIndex: z.number().int().min(0).max(24),
+    }),
+  ),
+});
+export type RoundHistoryEntry = z.infer<typeof RoundHistoryEntrySchema>;
+
+export const ResultsPayloadSchema = z.object({
+  // Host-paced: 0 winners -> 1 pool authorship -> 2 boards + share. M2 parks
+  // this at 0 and renders the plain reveal; M4 adds results.advance over a
+  // payload that is already complete, rather than changing the protocol again.
+  revealStage: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+  winners: z.array(z.string()), // playerIds
+  boards: z.array(ResultsBoardSchema),
+  roundHistory: z.array(RoundHistoryEntrySchema),
+});
+export type ResultsPayload = z.infer<typeof ResultsPayloadSchema>;
+
 export const PublicRoomStateSchema = z.object({
   protocolVersion: z.number().int(),
   code: RoomCodeSchema,
   phase: PhaseSchema,
   settings: SettingsSchema,
   players: z.array(PublicPlayerSchema),
-  house: HousePublicSchema.nullable(), // null before distribute
+  house: HousePublicSchema.nullable(), // null before the round loop
   round: RoundStateSchema.nullable(),
-  results: z.null(), // widens to ResultsPayload | null when M4 lands
+  results: ResultsPayloadSchema.nullable(), // phase === 'results'
 });
 export type PublicRoomState = z.infer<typeof PublicRoomStateSchema>;

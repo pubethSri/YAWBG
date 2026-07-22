@@ -1,8 +1,33 @@
 <script lang="ts">
-  import type { PublicRoomState, Settings } from "@yawbg/protocol";
+  import { DeckListSchema, type DeckSummary, type PublicRoomState, type Settings } from "@yawbg/protocol";
   import { socket } from "../socket.svelte";
 
   let { roomState }: { roomState: PublicRoomState } = $props();
+
+  let decks = $state<DeckSummary[]>([]);
+  $effect(() => {
+    fetch("/api/decks")
+      .then((r) => r.json())
+      .then((raw) => {
+        const parsed = DeckListSchema.safeParse(raw);
+        if (parsed.success) decks = parsed.data;
+      })
+      .catch(() => {
+        /* picker just stays empty; the server's default deck still plays */
+      });
+  });
+
+  // docs/01: warn when the deck is thinner than the game is likely to be long.
+  // The House bingos around 55-60% of the pool, so that's the rounds estimate.
+  const expectedRounds = $derived(
+    Math.ceil((roomState.settings.numberPoolSize * 0.6) / roomState.settings.drawsPerRound),
+  );
+  const selectedDeck = $derived(decks.find((d) => d.id === roomState.settings.deckIds[0]));
+  const deckWarning = $derived(
+    selectedDeck && selectedDeck.topicCount < expectedRounds
+      ? `Only ${selectedDeck.topicCount} topics for roughly ${expectedRounds} rounds — topics will repeat.`
+      : null,
+  );
 
   const isHost = $derived(roomState.players.find((p) => p.id === socket.session?.playerId)?.isHost ?? false);
   const connectedCount = $derived(roomState.players.filter((p) => p.connected).length);
@@ -73,6 +98,23 @@
   <section class="rounded-[var(--radius-card)] border border-near-black bg-paper-white p-4">
     <h2 class="mb-3 font-ui text-heading font-bold">Settings</h2>
     <div class="flex flex-col gap-3 font-ui text-body">
+      <label class="flex items-center justify-between gap-2">
+        <span>Topic deck</span>
+        <select
+          class="rounded-[var(--radius-button)] border border-near-black px-2 py-1"
+          disabled={!isHost || decks.length === 0}
+          value={roomState.settings.deckIds[0] ?? ""}
+          onchange={(e) => update({ deckIds: [(e.target as HTMLSelectElement).value] })}
+        >
+          {#each decks as deck (deck.id)}
+            <option value={deck.id}>{deck.name} ({deck.topicCount})</option>
+          {/each}
+        </select>
+      </label>
+      {#if deckWarning}
+        <p class="-mt-2 font-ui text-caption text-coral-blaze">{deckWarning}</p>
+      {/if}
+
       <label class="flex items-center justify-between gap-2">
         <span>Number pool</span>
         <select

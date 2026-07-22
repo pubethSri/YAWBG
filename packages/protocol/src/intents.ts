@@ -79,6 +79,32 @@ export const FillForceStartIntentSchema = z.object({
   payload: z.object({}),
 });
 
+export const RoundProposeIntentSchema = z.object({
+  type: z.literal("round.propose"),
+  payload: z.object({ cellIndex }),
+});
+
+export const RoundConfirmIntentSchema = z.object({
+  type: z.literal("round.confirm"),
+  payload: z.object({}),
+});
+
+export const RoundWithdrawIntentSchema = z.object({
+  type: z.literal("round.withdraw"),
+  payload: z.object({}),
+});
+
+export const RoundPassIntentSchema = z.object({
+  type: z.literal("round.pass"),
+  payload: z.object({}),
+});
+
+// Host-only (★ in docs/03-protocol.md); enforcement lives in Room.handleIntent.
+export const RoundForceAdvanceIntentSchema = z.object({
+  type: z.literal("round.forceAdvance"),
+  payload: z.object({}),
+});
+
 export const ClientIntentSchema = z.discriminatedUnion("type", [
   RoomCreateIntentSchema,
   RoomJoinIntentSchema,
@@ -93,5 +119,10 @@ export const ClientIntentSchema = z.discriminatedUnion("type", [
   FillWritePoolIntentSchema,
   FillSetDoneIntentSchema,
   FillForceStartIntentSchema,
+  RoundProposeIntentSchema,
+  RoundConfirmIntentSchema,
+  RoundWithdrawIntentSchema,
+  RoundPassIntentSchema,
+  RoundForceAdvanceIntentSchema,
 ]);
 export type ClientIntent = z.infer<typeof ClientIntentSchema>;

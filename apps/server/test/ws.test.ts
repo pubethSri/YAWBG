@@ -1,90 +1,19 @@
 import { describe, expect, test } from "bun:test";
-import { PROTOCOL_VERSION, ServerMessageSchema, type ClientIntent, type ServerMessage } from "@yawbg/protocol";
+import { PROTOCOL_VERSION } from "@yawbg/protocol";
 import { createApp } from "../src/app";
+import { TestClient, fakeDeck } from "./TestClient";
 
 const GRACE_MS = 300;
 
-const app = createApp({ graceMs: GRACE_MS, clientDist: null });
+const app = createApp({ graceMs: GRACE_MS, clientDist: null, decks: fakeDeck(), heartbeatMs: 0 });
 app.listen({ port: 0, hostname: "127.0.0.1" });
-const port = app.server!.port;
+const port = app.server!.port!;
+
+const connect = () => TestClient.connect(port);
 
 // No afterAll stop: Elysia's stop() blocks on lingering ws sockets under bun test
 // on Windows; the server dies with the test process.
 
-class TestClient {
-  private queue: ServerMessage[] = [];
-  private waiters: ((m: ServerMessage) => void)[] = [];
-
-  private constructor(readonly ws: WebSocket) {}
-
-  static async connect(): Promise<TestClient> {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-    const client = new TestClient(ws);
-    ws.onmessage = (e) => {
-      const msg = ServerMessageSchema.parse(JSON.parse(String(e.data)));
-      const waiter = client.waiters.shift();
-      if (waiter) waiter(msg);
-      else client.queue.push(msg);
-    };
-    await new Promise<void>((resolve, reject) => {
-      ws.onopen = () => resolve();
-      ws.onerror = (e) => reject(e);
-    });
-    return client;
-  }
-
-  send(intent: ClientIntent) {
-    this.ws.send(JSON.stringify(intent));
-  }
-
-  sendRaw(data: string) {
-    this.ws.send(data);
-  }
-
-  next(timeoutMs = 2000): Promise<ServerMessage> {
-    const queued = this.queue.shift();
-    if (queued) return Promise.resolve(queued);
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("timed out waiting for message")), timeoutMs);
-      this.waiters.push((m) => {
-        clearTimeout(timer);
-        resolve(m);
-      });
-    });
-  }
-
-  // Player sockets get a player.board frame alongside every room.state (per
-  // notifyAll); these helpers drain past any of the "other" frame type so
-  // assertions don't care how many stray board/state frames piled up.
-  private async nextSkipping(skipType: ServerMessage["type"]): Promise<ServerMessage> {
-    let msg = await this.next();
-    while (msg.type === skipType) msg = await this.next();
-    return msg;
-  }
-
-  async expectState(): Promise<Extract<ServerMessage, { type: "room.state" }>["payload"]> {
-    const msg = await this.nextSkipping("player.board");
-    expect(msg.type).toBe("room.state");
-    if (msg.type !== "room.state") throw new Error("unreachable");
-    return msg.payload;
-  }
-
-  async expectPlayerBoard(): Promise<Extract<ServerMessage, { type: "player.board" }>["payload"]> {
-    const msg = await this.nextSkipping("room.state");
-    expect(msg.type).toBe("player.board");
-    if (msg.type !== "player.board") throw new Error("unreachable");
-    return msg.payload;
-  }
-
-  async expectError(code: string): Promise<void> {
-    const msg = await this.nextSkipping("player.board");
-    expect(msg).toMatchObject({ type: "error", payload: { code } });
-  }
-
-  close() {
-    this.ws.close();
-  }
-}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -92,7 +21,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 describe("M0 exit scenario over real sockets", () => {
   test("create → join → display → disconnect → resume → expiry → leave", async () => {
     // c1 creates a room
-    const c1 = await TestClient.connect();
+    const c1 = await connect();
     c1.send({ type: "room.create", payload: { playerName: "Alice", protocolVersion: PROTOCOL_VERSION } });
     const created = await c1.next();
     expect(created.type).toBe("session.created");
@@ -107,7 +36,7 @@ describe("M0 exit scenario over real sockets", () => {
     expect(state.players[0]).toMatchObject({ name: "Alice", isHost: true, connected: true });
 
     // c2 joins; both get the 2-player snapshot
-    const c2 = await TestClient.connect();
+    const c2 = await connect();
     c2.send({ type: "room.join", payload: { code, playerName: "Bob", protocolVersion: PROTOCOL_VERSION } });
     const c2Created = await c2.next();
     expect(c2Created.type).toBe("session.created");
@@ -119,7 +48,7 @@ describe("M0 exit scenario over real sockets", () => {
     expect((await c1.expectState()).players).toHaveLength(2);
 
     // display joins read-only
-    const d = await TestClient.connect();
+    const d = await connect();
     d.send({ type: "display.join", payload: { code, protocolVersion: PROTOCOL_VERSION } });
     expect((await d.expectState()).players).toHaveLength(2);
 
@@ -135,7 +64,7 @@ describe("M0 exit scenario over real sockets", () => {
     await d.expectState();
 
     // resume within grace on a fresh socket: full resync, seat reclaimed
-    const c2b = await TestClient.connect();
+    const c2b = await connect();
     c2b.send({
       type: "session.resume",
       payload: { code, playerId: bob.playerId, token: bob.token, protocolVersion: PROTOCOL_VERSION },
@@ -146,7 +75,7 @@ describe("M0 exit scenario over real sockets", () => {
     await d.expectState();
 
     // resume with a bad token
-    const impostor = await TestClient.connect();
+    const impostor = await connect();
     impostor.send({
       type: "session.resume",
       payload: { code, playerId: bob.playerId, token: "wrong", protocolVersion: PROTOCOL_VERSION },
@@ -167,7 +96,7 @@ describe("M0 exit scenario over real sockets", () => {
     // voluntary leave: immediate removal; last player out kills the room
     c1.send({ type: "room.leave", payload: {} });
     await sleep(100);
-    const late = await TestClient.connect();
+    const late = await connect();
     late.send({ type: "room.join", payload: { code, playerName: "Zoe", protocolVersion: PROTOCOL_VERSION } });
     await late.expectError("ROOM_NOT_FOUND");
 
@@ -177,7 +106,7 @@ describe("M0 exit scenario over real sockets", () => {
   });
 
   test("bad frames and version mismatch", async () => {
-    const c = await TestClient.connect();
+    const c = await connect();
 
     c.sendRaw("not json{");
     await c.expectError("BAD_MESSAGE");
@@ -195,7 +124,7 @@ describe("M0 exit scenario over real sockets", () => {
   });
 
   test("resume evicts the prior socket so its late close can't disconnect the live seat", async () => {
-    const host = await TestClient.connect();
+    const host = await connect();
     host.send({ type: "room.create", payload: { playerName: "Host", protocolVersion: PROTOCOL_VERSION } });
     const created = await host.next();
     if (created.type !== "session.created") throw new Error("unreachable");
@@ -203,7 +132,7 @@ describe("M0 exit scenario over real sockets", () => {
     await host.expectState();
 
     // p2 joins on socket B
-    const b = await TestClient.connect();
+    const b = await connect();
     b.send({ type: "room.join", payload: { code, playerName: "P2", protocolVersion: PROTOCOL_VERSION } });
     const bCreated = await b.next();
     if (bCreated.type !== "session.created") throw new Error("unreachable");
@@ -212,7 +141,7 @@ describe("M0 exit scenario over real sockets", () => {
     await host.expectState();
 
     // p2 resumes on a fresh socket C while B is still open (duplicate tab / late close)
-    const c = await TestClient.connect();
+    const c = await connect();
     c.send({
       type: "session.resume",
       payload: { code, playerId: seat.playerId, token: seat.token, protocolVersion: PROTOCOL_VERSION },
@@ -233,7 +162,7 @@ describe("M0 exit scenario over real sockets", () => {
   });
 
   test("intent from unbound socket is dropped, state.request resyncs", async () => {
-    const c = await TestClient.connect();
+    const c = await connect();
     c.send({ type: "state.request", payload: {} }); // no session: silently dropped
 
     c.send({ type: "room.create", payload: { playerName: "Solo", protocolVersion: PROTOCOL_VERSION } });

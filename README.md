@@ -16,26 +16,50 @@ judge**. The arguments stay human.
 
 ## Status
 
-**Design phase complete; implementation not started.** Everything in `docs/` is
-a design artifact — start at [`docs/INDEX.md`](docs/INDEX.md). The build plan
-lives in [`docs/04-roadmap.md`](docs/04-roadmap.md) (milestones M0–M6, each
-ending playable-ish).
+**Playable end to end.** M0 (skeleton), M1 (lobby & board fill) and M2 (core
+round loop) are shipped: a room of phones can go from a 4-letter code to a
+results screen, arguing the whole way. Next up is M3 — the display "Stage" and
+the drama pass. Design artifacts live in `docs/` — start at
+[`docs/INDEX.md`](docs/INDEX.md); milestone status is in
+[`docs/04-roadmap.md`](docs/04-roadmap.md).
 
-## Planned stack
+## Stack
 
 Bun workspaces monorepo: **Elysia** server (single process, WebSocket,
 server-authoritative room state machine) · **Svelte 5** (runes) + **Tailwind
-v4** PWA client · shared **`packages/protocol`** zod package as the single
-source of truth for every wire type · **bun:sqlite** for decks and game logs ·
-single-origin Docker deploy. Details in
+v4** client · shared **`packages/protocol`** zod package as the single source of
+truth for every wire type · **bun:sqlite** for decks (live game state is
+memory-only by design) · single-origin Docker deploy. Details in
 [`docs/02-architecture.md`](docs/02-architecture.md).
+
+## Quick start
+
+Requires [Bun](https://bun.sh).
+
+```bash
+bun install
+bun run build       # build the client SPA
+bun run dev:server  # single origin on :3000
+```
+
+Open `http://localhost:3000/` on each phone (same Wi-Fi — use the PC's LAN IP),
+or `http://localhost:3000/display/CODE` for a read-only big screen.
+
+| Command | Does |
+|---|---|
+| `bun test` | Protocol round-trip, bingo lines, WS integration + full round loop |
+| `bun run check` | `tsc --noEmit` (server+protocol) and `svelte-check` (client) |
+| `bun run dev:client` | Vite dev server on :5173, proxying `/ws` to :3000 |
 
 ## Repository layout
 
 | Path | Purpose |
 |---|---|
 | [`docs/`](docs/INDEX.md) | Design artifacts — rules, architecture, protocol, roadmap, UX, design system |
-| [`decks/`](decks/) | Seed topic-deck JSON files (imported into SQLite) |
+| `apps/server/` | Elysia app: `RoomManager`, the `Room` state machine, deck store |
+| `apps/client/` | Svelte 5 SPA: phase-renderer screens for player and display |
+| `packages/protocol/` | Zod schemas — every wire type, and nothing outside here |
+| [`decks/`](decks/) | Seed topic-deck JSON, upserted into SQLite on boot |
 
 ## Credits
 

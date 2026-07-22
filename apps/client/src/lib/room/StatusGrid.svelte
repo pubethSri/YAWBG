@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { PublicPlayer } from "@yawbg/protocol";
 
-  let { player }: { player: PublicPlayer } = $props();
+  // `fill` shows the ready badge; `round` swaps it for resolved-this-round plus
+  // a line count, since fillDone stays true for the rest of the game.
+  let { player, context = "fill" }: { player: PublicPlayer; context?: "fill" | "round" } = $props();
 </script>
 
 <div class="rounded-[var(--radius-card)] border border-near-black bg-paper-white p-3">
@@ -17,7 +19,18 @@
         host
       </span>
     {/if}
-    {#if player.fillDone}
+    {#if context === "round"}
+      {#if player.linesCompleted > 0}
+        <span class="tabular rounded-[var(--radius-tag)] bg-sunburst-yellow px-1.5 py-0.5 text-caption font-semibold text-ink-black">
+          {player.linesCompleted} {player.linesCompleted === 1 ? "line" : "lines"}
+        </span>
+      {/if}
+      {#if player.resolved}
+        <span class="ml-auto rounded-[var(--radius-tag)] bg-aqua-pop px-1.5 py-0.5 text-caption font-semibold text-ink-black">
+          resolved
+        </span>
+      {/if}
+    {:else if player.fillDone}
       <span class="ml-auto rounded-[var(--radius-tag)] bg-aqua-pop px-1.5 py-0.5 text-caption font-semibold text-ink-black">
         ready
       </span>

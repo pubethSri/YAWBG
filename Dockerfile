@@ -22,7 +22,13 @@ RUN bun install --frozen-lockfile --production
 COPY packages/protocol ./packages/protocol
 COPY apps/server ./apps/server
 COPY --from=build /app/apps/client/dist ./apps/client/dist
+# Seed decks are read at boot and upserted into SQLite; without them lobby.start
+# rejects with "the selected decks have no topics".
+COPY decks ./decks
 ENV NODE_ENV=production
 ENV PORT=3000
+# Overridden by deploy/compose.yml to a mounted volume; this default keeps a
+# bare `docker run` from silently losing decks on every restart.
+ENV DB_PATH=/app/data/yawbg.sqlite
 EXPOSE 3000
 CMD ["bun", "apps/server/src/index.ts"]

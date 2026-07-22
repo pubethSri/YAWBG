@@ -2,24 +2,43 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: implementation started — M0 and M1 shipped
+## Project status: implementation started — M0, M1 and M2 shipped
 
-The design phase is complete (`docs/` holds the artifacts). **M0 — the skeleton
-milestone** and **M1 — lobby & board fill** are both built and their exit tests
-pass. The repo is now a Bun workspaces monorepo alongside the design docs. Next
-up is **M2 — Core round loop** (see `docs/04-roadmap.md`). Build milestone by
-milestone; don't design or build against the roadmap's deferred lists without
-flagging it.
+The design phase is complete (`docs/` holds the artifacts). **M0 — skeleton**,
+**M1 — lobby & board fill**, and **M2 — core round loop** are built; the game is
+playable start to results. The repo is a Bun workspaces monorepo alongside the
+design docs. Next up is **M3 — Display & drama** (see `docs/04-roadmap.md`).
+Build milestone by milestone; don't design or build against the roadmap's
+deferred lists without flagging it.
 
-M1 notes for future sessions: the `distribute` phase is the resting state
-until M2 builds the draw engine — there's no `draw` phase to auto-advance into
-yet, so the client's pool-deal reveal screen doesn't time out or navigate away
-on its own. Pool distribution uses a round-robin *offset*: each player's whole
-K-name block rotates to exactly one other player (per `docs/01-game-design.md`'s
-"round-robin offset" wording), not a full cross-player shuffle of individual
-names. The board editor implements tap-tap-to-swap (arrange mode's documented
-accessible path) but not pointer-drag-to-swap; revisit if playtesting shows
-tap-tap alone feels wrong on a real phone.
+M1 notes that still hold: pool distribution uses a round-robin *offset* — each
+player's whole K-name block rotates to exactly one other player, not a full
+cross-player shuffle of individual names. The board editor implements
+tap-tap-to-swap (arrange mode's documented accessible path) but not
+pointer-drag-to-swap; revisit if playtesting shows tap-tap alone feels wrong on
+a real phone.
+
+M2 notes for future sessions:
+
+- **The server owns both phase timers.** `distribute` auto-advances after
+  `distributeMs` (4 s) and is skipped entirely when K = 0; `draw` dwells for
+  `drawMs` (2.5 s) then opens the floor. Both are injectable through
+  `createApp` like `graceMs`, so tests never sleep. Proposals are correctly
+  rejected during the `draw` window — the table sees the topic first.
+- **A disconnected player blocks round auto-advance.** `docs/01`'s edge-case
+  table beat `docs/03`'s "every *connected* player" wording, and `03` has been
+  corrected. This is what makes host force-advance meaningful.
+- **`Player.authors[]` is server-only** and is the *only* record of who wrote
+  each pool name — it must never move onto `PrivateCell`, which ships to the
+  owner every snapshot while authorship stays hidden until results.
+- `results` already carries the full `ResultsPayload` (winners, boards with
+  `authorId`, `roundHistory`) with `revealStage` parked at `0`. M4 adds the
+  host-paced sequence over it with **no protocol change**.
+- `PROTOCOL_VERSION` is now **2**; `packages/protocol/test/protocol.test.ts`
+  asserts the literal on purpose, so bumping it fails that test by design.
+- SQLite (`bun:sqlite`) holds decks only; live game state stays memory-only and
+  a restart dropping in-progress games is accepted. Tests inject a fake
+  `TopicSource` (`apps/server/test/TestClient.ts`) so they never open a DB.
 
 The stack is Bun workspaces + Elysia server + Svelte 5 (runes) + Tailwind v4
 client + a shared `packages/protocol` zod package (see `docs/02-architecture.md`).
@@ -29,9 +48,9 @@ Commands (run from the repo root; requires Bun):
 | Command | Does |
 |---|---|
 | `bun install` | Install all workspaces (single root `bun.lock`) |
-| `bun test` | Protocol round-trip + server WS integration tests |
+| `bun test` | Protocol round-trip, bingo lines, server WS integration + full round loop |
 | `bun run check` | `tsc --noEmit` (server+protocol) and `svelte-check` (client) |
-| `bun run dev:server` | Elysia server on :3000 (serves `apps/client/dist` + `/ws` + `/healthz`) |
+| `bun run dev:server` | Elysia server on :3000 (serves `apps/client/dist` + `/ws` + `/healthz` + `/api/decks`) |
 | `bun run dev:client` | Vite dev server on :5173 (proxies `/ws` to :3000) |
 | `bun run build` | Build the client SPA into `apps/client/dist` |
 
@@ -85,7 +104,8 @@ These recur across all docs and should shape any new design work:
 | `docs/06-key-screens.md` | The two hard screens: board editor & open floor interaction design |
 | `docs/07-design-system.md` | Visual language: colors, three-voice typography (EN+TH), shape, components |
 | `docs/08-deployment.md` | Ship recipe: shared VM + Caddy vhosts, TLS modes, compose, deploy flow |
-| `decks/general.example.json` | Sample topic deck schema (seed decks live in `decks/`) |
+| `decks/general.json` | The seed deck (60 topics), loaded into SQLite on boot |
+| `decks/general.example.json` | Schema reference — deliberately skipped by the seeder |
 
 ## Reference implementation: *ito* at `C:\ito`
 

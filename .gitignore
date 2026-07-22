@@ -1,6 +1,8 @@
 node_modules/
 dist/
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
 .env
 
 # Claude Code local runtime files (keep .claude/launch.json tracked)

@@ -52,9 +52,18 @@ ever declared outside the protocol package.**
 | `round.pass` | `{}` | Marks player resolved (= ready). Revocable until round advances? **No** — pass is final for the round (keeps advance logic simple) |
 | `round.forceAdvance` ★ | `{}` | Host skips unresolved players (they auto-pass); also auto-withdraws a stalled pending proposal |
 
-Round auto-advances to the next `draw` when every connected, board-active player
-is resolved. Optional `roundTimerSec` fires a server-side auto-advance identically
-to `forceAdvance`.
+Round auto-advances to the next `draw` when **every** player is resolved —
+including disconnected ones, who are treated as not-yet-resolved per the
+edge-case table in `01-game-design.md`. A brief drop must not silently spend a
+player's round; the host's `forceAdvance` is the designed escape hatch, and grace
+expiry auto-PASSes on removal. Optional `roundTimerSec` fires a server-side
+auto-advance identically to `forceAdvance`.
+
+`confirm` requires only that the proposal is yours, **not** that it is at the
+queue front. Front-of-queue is a UX pacing device (`06-key-screens.md`'s on-stage
+takeover); enforcing it server-side would deadlock the room whenever the front
+proposer drops. `pass` implicitly withdraws a live proposal, so no card is left
+stranded on the display's stage.
 
 ### Post-game
 
@@ -121,8 +130,12 @@ interface Proposal { playerId: string; cellIndex: number;
                      name: string; }  // name is public the moment it's proposed
 
 type HousePublic =
-  | { mode: 'full'; board: number[]; freeCenter: boolean; hits: number[];
-      linesCompleted: number }
+  // board: 25 entries, null at index 12 when freeCenter (a real bingo card
+  // prints FREE there). hits: cell INDICES, not numbers — directly renderable,
+  // and allDrawn already carries the numbers. bestLineNeeds ships in `full` too
+  // so the House chip reads the same in every mode.
+  | { mode: 'full'; board: (number | null)[]; freeCenter: boolean;
+      hits: number[]; linesCompleted: number; bestLineNeeds: number }
   | { mode: 'progress'; bestLineNeeds: number; linesCompleted: number }
   | { mode: 'hidden' };
 
@@ -132,7 +145,7 @@ interface PublicRoomState {
   phase: Phase;
   settings: Settings;
   players: PublicPlayer[];
-  house: HousePublic | null;         // null before distribute
+  house: HousePublic | null;         // null before the round loop (K=0 skips distribute)
   round: {
     number: number;
     drawnNumbers: number[];          // this round (length = drawsPerRound)
@@ -166,7 +179,7 @@ interface ResultsPayload {
 ## Server-side invariants (enforced in `Room`, not trusted from clients)
 
 1. One live proposal per player; proposals only in `open_floor` / `last_call`.
-2. `confirm`/`withdraw` only by the proposal's owner.
+2. `confirm`/`withdraw` only by the proposal's owner (ownership, not queue position).
 3. A locked cell can never change again.
 4. One lock per player per round (a confirm resolves the player).
 5. Pool distribution: round-robin offset ⇒ no player receives own contribution;

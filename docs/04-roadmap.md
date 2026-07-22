@@ -43,7 +43,7 @@ for 60 s and resumes its seat.
 **Exit test:** 3 players fill boards with K = 5 `middleRow`; nobody receives own
 pool names; boards look right on phones.
 
-## M2 — Core round loop *(the game exists after this)*
+## M2 — Core round loop *(the game exists after this)* ✅ done
 
 - House board generation, draw engine (`drawsPerRound`, free center, target
   lines), lazy topic pairing, deck reshuffle-on-empty.
@@ -54,6 +54,12 @@ pool names; boards look right on phones.
 - House bingo detection → results (winners, plain reveal).
 - Seeded `general` deck loaded from JSON into SQLite; lobby deck picker (single
   deck is fine here).
+
+**Pulled forward into M2** (both were cheap once the loop existed): `lastCall`
+(the setting already existed; the server side is one phase transition and `06`
+reuses the open-floor screen) and basic WS ping/pong (real gameplay depends on
+liveness — a silently-dead proposer holds the queue front). M6 still owns
+heartbeat *tuning* behind the org proxy.
 
 **Exit test:** full 3-player game played at one table, phones only, start to
 results, with at least one heated argument. (Yes, this is a real test.)
@@ -68,8 +74,9 @@ results, with at least one heated argument. (Yes, this is a real test.)
 - Player-view polish: draw-moment takeover animation, proposal queue awareness,
   resolved indicators, lock animations, new-House-hit flash (client-side
   snapshot diff).
-- `houseBoardVisibility` modes `progress` and `hidden`.
-- `roundTimerSec` and `lastCall`.
+- Client rendering for `houseBoardVisibility` modes `progress` and `hidden`
+  (the server already emits all three).
+- `roundTimerSec`. (`lastCall` shipped in M2.)
 
 **Exit test:** the 5-friend group plays with a TV; the room groans at a House
 hit without anyone explaining the screen.

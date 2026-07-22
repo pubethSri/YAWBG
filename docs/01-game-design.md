@@ -42,7 +42,7 @@ open floor.
 |---|---|
 | **Player** | Has a private 5×5 name board. Writes names, proposes locks, argues. 2–12 per room. |
 | **Lobby host** | The player who created the room. Controls settings, starts the game, can force-advance a stalled round. A role on a player, not a separate device. |
-| **House** | System-controlled. Owns a conventional numbered 5×5 bingo board drawn from the number pool. Acts as the game timer. Not a seat. |
+| **House** | System-controlled. Owns a conventional numbered 5×5 bingo board drawn from the number pool — **B-I-N-G-O columns**: column *c* holds 5 numbers from its own fifth of the pool (1–15, 16–30, … at pool 75; 1–20, … at 100 — both divide by 5). With `houseFreeCenter` the centre cell prints FREE and holds no number. Acts as the game timer. Not a seat. |
 | **Display** | Optional read-only big screen (TV / PC / tablet). Renders public state only: House board, current draw & topic, proposal queue, board-status grids. Zero displays and multiple displays both work. |
 
 ## Phase machine
@@ -165,7 +165,8 @@ Not settings (fixed rules): duplicate names allowed; players fill all 25 cells
 ## Game end & win conditions
 
 - The game **always terminates**: every House number is in the pool, so within
-  `numberPoolSize` draws the House must bingo. No draw-exhaustion stall exists.
+  `numberPoolSize` draws the House must bingo (24 numbers with a free centre,
+  25 without). No draw-exhaustion stall exists.
 - Winners: all players with ≥ `playerLinesToWin` completed lines when the House
   bingos (plus `last_call` locks if enabled). Multiple winners is normal and
   desired. Zero winners is a valid, hilarious outcome.

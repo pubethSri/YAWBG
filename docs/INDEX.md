@@ -29,16 +29,26 @@ accounts, join by 4-letter room code.
 | 07 | [`07-design-system.md`](07-design-system.md) | Visual language: sticker-bombed-tabletop theme, color tokens + measured contrast table + game-state mapping, three-voice typography (Fraunces / Inter+Kanit / Baloo 2, Thai included), shape & the die-cut ring, motion, component recipes, Tailwind `@theme` quick start | You're styling anything. Light-only for v1 |
 | 08 | [`08-deployment.md`](08-deployment.md) | Ship recipe: shared org VM with *ito* via Caddy vhosts, TLS modes (incl. org certs), compose layout, proxy WS requirements, deploy flow, SQLite backup | You're deploying, or touching proxy/TLS/compose |
 
-Seed topic decks live outside `docs/` in [`../decks/`](../decks/)
-(`general.example.json` shows the deck schema).
+Seed topic decks live outside `docs/` in [`../decks/`](../decks/):
+`general.json` is the deck that actually ships (upserted into SQLite on boot),
+and `general.example.json` stays as the schema reference — the seeder skips
+`*.example.json` deliberately.
 
 ## Implementation status
 
-Design is complete and the build has started. **M0 (skeleton) and M1 (lobby &
-board fill) are shipped** — the repo is now a Bun workspaces monorepo
-(`apps/server`, `apps/client`, `packages/protocol`) beside these docs. See
-`04-roadmap.md` for milestone status and `../CLAUDE.md` for the command list.
-Next milestone: **M2 — Core round loop** (`handoff-m2.md`).
+Design is complete and the game is **playable end to end**. **M0 (skeleton), M1
+(lobby & board fill) and M2 (core round loop) are shipped** — the repo is a Bun
+workspaces monorepo (`apps/server`, `apps/client`, `packages/protocol`) beside
+these docs. See `04-roadmap.md` for milestone status and `../CLAUDE.md` for the
+command list and implementation notes. Next milestone: **M3 — Display & drama**.
+
+Two rulings settled during M2 that these artifacts now reflect:
+
+- **A disconnected player blocks round auto-advance** — `01`'s edge-case table
+  won over `03`'s earlier "every *connected* player" wording, which has been
+  corrected. This is what makes the host's force-advance meaningful.
+- **`lastCall` and WS ping/pong shipped early** (M2 rather than M3/M6), because
+  both were small once the round loop existed. M6 still owns heartbeat *tuning*.
 
 ## Cross-cutting facts (asserted across multiple artifacts)
 
