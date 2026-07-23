@@ -8,12 +8,6 @@ import type { ResultsBoardCell } from "@yawbg/protocol";
  *
  * Client-side only — server-side image rendering is an explicit v1 non-goal
  * (docs/02). Everything here runs on a detached `<canvas>`.
- *
- * TODO(M5): the export is specified to carry the tabletop texture at the base
- * 24 px pitch (docs/07 → "Screen applications" → Share-to-PNG). The texture
- * itself is not built yet, so this renders on plain cream. When `body` grows
- * its dot lattice, draw the same tile here at PITCH = 24 * SCALE rather than
- * inventing a one-off.
  */
 
 /** Logical layout units; the bitmap is SCALE times bigger for retina sharpness. */
@@ -100,6 +94,33 @@ async function ensureFonts(): Promise<void> {
 const GAME = '"Fraunces Variable", "Taviraj", serif';
 const UI = '"Inter Variable", "Kanit", sans-serif';
 const SHOUT = '"Baloo 2 Variable", "Kanit", sans-serif';
+
+/**
+ * The tabletop texture (docs/07). The export takes the **base 24 px pitch**, not
+ * the display's 48 px: the exported board is a phone-sized artifact viewed in a
+ * chat app, so it takes the phone-sized tile.
+ *
+ * Drawn in logical units — `ctx` is already scaled by SCALE, so the dots land at
+ * the same physical pitch as `body`'s CSS tile and get SCALE times the
+ * resolution. Geometry is the same 1.5 px radius on a 24 px pitch; the ratio is
+ * the load-bearing number.
+ */
+const TEXTURE_PITCH = 24;
+const TEXTURE_RADIUS = 1.5;
+
+function tabletopTexture(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+  ctx.save();
+  ctx.fillStyle = token("--color-tabletop-mark");
+  ctx.beginPath();
+  for (let y = TEXTURE_PITCH / 2; y < h; y += TEXTURE_PITCH) {
+    for (let x = TEXTURE_PITCH / 2; x < w; x += TEXTURE_PITCH) {
+      ctx.moveTo(x + TEXTURE_RADIUS, y);
+      ctx.arc(x, y, TEXTURE_RADIUS, 0, Math.PI * 2);
+    }
+  }
+  ctx.fill();
+  ctx.restore();
+}
 
 function roundRect(
   ctx: CanvasRenderingContext2D,
@@ -256,6 +277,9 @@ export async function renderBoardPng(input: ShareBoardInput): Promise<Blob> {
 
   ctx.fillStyle = cream;
   ctx.fillRect(0, 0, W, H);
+  // The canvas is the tabletop, here as much as in the browser. Every white cell
+  // painted below occludes it by being opaque, exactly as on screen.
+  tabletopTexture(ctx, W, H);
 
   // --- Header: wordmark, who, room code + date -----------------------------
   ctx.textAlign = "left";

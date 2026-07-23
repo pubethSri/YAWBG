@@ -20,6 +20,7 @@
 @theme static {
   /* Colors */
   --color-cream-blush: #ffe9ce;
+  --color-tabletop-mark: #f0d0a8;
   --color-paper-white: #ffffff;
   --color-ink-black: #000000;
   --color-slate-gray: #666666;
@@ -60,6 +61,7 @@
   --text-d-body-sm: clamp(16px, 1.25vw, 24px);
   --text-d-body: clamp(18px, 1.46vw, 28px);
   --text-d-cell: clamp(16px, 1.25vw, 24px);
+  --text-d-chip: clamp(20px, 2.08vw, 40px);
   --text-d-heading: clamp(20px, 1.67vw, 32px);
   --text-d-topic: clamp(40px, 3.75vw, 72px);
   --text-d-verdict: clamp(48px, 4.58vw, 88px);
@@ -88,10 +90,35 @@
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 }
 
+/* The tabletop texture (docs/07 "The tabletop texture"). Declared once, on the
+   canvas, and nowhere else — every Paper White surface occludes it by being
+   opaque, and no component re-declares it.
+
+   Round dots, orthogonal grid, 1.5px radius on a 24px pitch. The ratio (~1:8)
+   is the load-bearing number, not the absolute sizes: change the pitch and the
+   radius scales with it.
+
+   The mark hex is duplicated inside the data URI on purpose: **CSS variables do
+   not interpolate inside url()**. `var(--color-tabletop-mark)` there silently
+   yields no image, which reads as "the token is broken". Keep the two in sync
+   by hand. The colour is measured at 1.25:1 against the cream — a deliberate
+   *ceiling*, not a floor: a decorative pattern that reaches 3:1 has started to
+   read as structure. */
 body {
   background-color: var(--color-cream-blush);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='1.5' fill='%23f0d0a8'/%3E%3C/svg%3E");
+  background-size: 24px 24px;
   color: var(--color-ink-black);
   font-family: var(--font-ui);
+}
+
+/* Display only — same SVG, same token, twice the pitch. The reason is physical:
+   at 24px on a 55" screen the dots are ~1.9mm at 18mm spacing, roughly 2 arcmin
+   at 3m, which is where texture stops existing. At 48px the TV reads as
+   textured without the grid becoming countable. Set on `body` by the display
+   route, so the canvas is still declared exactly once (docs/07). */
+body.display-shell {
+  background-size: 48px 48px;
 }
 
 /* The die-cut ring is the focus indicator (docs/07). The ink band carries the
@@ -104,6 +131,49 @@ body {
 /* Anything that counts holds its width as values change (docs/07). */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* The Stage's House column sizes itself — it is not given a percentage
+   (docs/09 decision 1). The column ends up exactly as wide as its board is
+   tall, so every pixel the board cannot use flows to the right pane. A fixed
+   percentage cannot do this: 38% is near-optimal at 1920x1080 and wastes ~140px
+   of horizontal space at 1900x910, because the waste is caused by the
+   viewport's *shape*.
+
+   Pure CSS cannot ask "how tall did the board end up?", so the column's width
+   is computed as the row's height minus the panel's chrome — and the chrome is
+   *given* the two heights below rather than measured, which makes the
+   subtraction exact by construction. Both elements are single-line by design,
+   and pinning them also strengthens HousePanel's invariant that the panel's
+   shape never changes between visibility modes. The dread row is sized off
+   --text-d-heading, not --text-d-body-sm, so the taller `HOUSE BINGO` shout
+   sticker fits the same slot. */
+:root {
+  --stage-house-gap: 1.5vh;
+  --stage-house-head: calc(var(--text-d-heading) * 1.3);
+  --stage-house-dread: calc(var(--text-d-heading) * 1.7);
+  --stage-house-chrome: calc(
+    var(--stage-house-head) + var(--stage-house-dread) + var(--stage-house-gap) * 2
+  );
+}
+
+/* An element is never its own container, hence the wrapper/grid split: the
+   body row is the size container, the grid inside it reads that row's height.
+   Size containment is safe here because this element's size comes entirely from
+   the outer grid (full width; the minmax(0,1fr) row of an h-dvh grid), never
+   from its contents. */
+.stage-body {
+  container-type: size;
+}
+
+.stage-columns {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  /* Clamped at 55% of the row width so an extremely tall, narrow display can't
+     starve the right pane. min() picks whichever constraint binds, which is
+     also what lets the board below be width-bound in both branches. */
+  grid-template-columns: min(55cqw, calc(100cqh - var(--stage-house-chrome))) minmax(0, 1fr);
 }
 
 /* Motion (docs/07). Every keyframe set below ends on the resting state — no

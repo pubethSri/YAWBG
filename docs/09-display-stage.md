@@ -1,9 +1,10 @@
 # 09 — Display Stage: layout spec & the tabletop texture
 
-**Status: designed, not built.** This is the buildable spec for a visual pass on
-the display Stage, plus the global canvas texture that lands with it. Written
-during a design-only session (2026-07-23); no code was changed. `07-design-system.md`
-owns the texture's *tokens and rules* — this doc owns the *Stage layout*.
+**Status: built** (2026-07-23), as the first slice of M5. Designed in an earlier
+session the same day; the spec below is what was implemented, with an
+implementation postscript at the end recording the two things the build learned.
+`07-design-system.md` owns the texture's *tokens and rules* — this doc owns the
+*Stage layout*.
 
 Scope wall: this is part of M5 pulled ahead of M4 (see `04-roadmap.md`). It is
 a restyle. **No protocol change, no new wire type, no new server state.**
@@ -214,8 +215,9 @@ texture". Summary for implementers:
 
 ## Verification expected of the implementer
 
-- `bun run check` and `bun test` (52 tests) green. A styling pass should touch
-  neither, so any change there is a signal, not a result.
+- `bun run check` and `bun test` (62 tests at the time of the build) green. A
+  styling pass should touch neither, so any change there is a signal, not a
+  result.
 - `document.documentElement.scrollHeight === clientHeight` on the display after
   every layout change, in all states below.
 
@@ -297,3 +299,57 @@ itself.
 25. At both window sizes, run
     `document.documentElement.scrollHeight === document.documentElement.clientHeight`
     in the console. It must be `true` in every state above.
+
+## Implementation postscript
+
+Two things the build had to settle that the spec did not anticipate.
+
+### The `auto` column is a container query, not `grid-template-columns: auto`
+
+Decision 1 asks for a column exactly as wide as its board is tall. Literal
+`auto` cannot do this: CSS resolves a grid track's width *before* the item's
+height is known, so an `aspect-ratio: 1; height: 100%` board contributes its
+text-based min-content width to track sizing and the column collapses.
+
+The built version makes the Stage's body row a **size container**
+(`.stage-body { container-type: size }`) and writes the column as
+
+```css
+grid-template-columns: min(55cqw, calc(100cqh - var(--stage-house-chrome))) minmax(0, 1fr);
+```
+
+which is the same intent expressed in terms the browser can resolve: the row's
+height is externally definite, so the board's size is too. `--stage-house-chrome`
+is the panel's heading plus its dread row plus two gaps — and those two elements
+are *given* fixed heights (`--stage-house-head`, `--stage-house-dread`) rather
+than measured, which makes the subtraction exact by construction and, as a
+bonus, hard-enforces the "the panel's shape never changes between visibility
+modes" invariant. An element is never its own container, which is why the body
+row and the column grid are two elements rather than one.
+
+Because the column is the smaller of the two constraints, the board is
+**width-bound** (`w-full aspect-square`) in both branches — the height-bound
+`h-full` the spec suggested would overflow horizontally when the 55% clamp wins.
+
+Measured after the build, board width × height vs. column width:
+
+| Viewport | Column | Board | Dead space in the column |
+|---|---|---|---|
+| 1920×1080 | 729px | 729×729 | 0px (was ~0 at this size) |
+| 1900×910 | 572px | 572×572 | 0px (**was ~121px**) |
+| 1366×768 | 537px | 537×537 | 0px |
+
+### The House does move between *rounds* — and that is not the invariant
+
+Step 19's "not by a single pixel" holds exactly: draw → open floor within one
+round measures `dx/dy/dw/dh = 0`. But the House does resize by ~24px *across* a
+round boundary, because the topic sits in the header and a topic that wraps to a
+second line makes the header taller, which shortens the body row, which is now
+what the column width is derived from.
+
+This is accepted, not a defect. The board already resized this way before the
+rebuild (it was `max-h-full`); what is new is that the right pane's width moves
+with it. It happens on the exact frame where the topic slams in and the
+starburst plays, so nothing about it is legible as motion. Fixing it would mean
+reserving two lines of topic height permanently, which costs real board size on
+every single-line topic — a worse trade. Revisit only if a playtester notices.

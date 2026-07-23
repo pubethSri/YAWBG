@@ -20,6 +20,15 @@
 
   onMount(() => socket.joinDisplay(code));
 
+  // The tabletop texture doubles its tile on the display (docs/07). The canvas
+  // is declared once, on `body`, so the override goes there too rather than on
+  // a wrapper that would have to re-declare the background-image to have any
+  // effect — background-size alone does nothing on an element with no image.
+  onMount(() => {
+    document.body.classList.add("display-shell");
+    return () => document.body.classList.remove("display-shell");
+  });
+
   const roomState = $derived(socket.roomState);
 </script>
 

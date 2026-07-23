@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: implementation started — M0 through M4 shipped
+## Project status: implementation started — M0 through M4 shipped, M5 in slices
 
 The design phase is complete (`docs/` holds the artifacts). **M0 — skeleton**,
 **M1 — lobby & board fill**, **M2 — core round loop**, **M3 — display &
@@ -21,18 +21,18 @@ local work continues. The display ships *styled* in M3 (legibility across a
 room is what its exit test measures); M5 owns cross-surface cohesion, motion
 timing and the player-view responsive pass.
 
-**`docs/09-display-stage.md` is designed but NOT built.** A design-only session
-(2026-07-23) specced the display Stage polish and a new global canvas texture —
-both M5 work, settled ahead of time so the TV looks right for the first
-playtest. `09` holds the Stage layout and a 25-step manual test; `docs/07` holds
-the texture's token (`--color-tabletop-mark`), its measured contrast rows and
-its rules. It is now the next thing to build. If you are about to touch
-`apps/client/src/lib/display/` or `app.css`'s `body` rule, read `09` first — it
-explains, among other things, why the House column must be `auto` and not a
-percentage. The texture also has a second consumer waiting: the share-to-PNG
-export is specified to carry it at the base 24 px pitch, and
-`apps/client/src/lib/share.ts` renders on plain cream with a `TODO(M5)` until
-it lands.
+**M5 is being built in slices**, each ending with a manual test the user runs
+before the next starts. Slice 1 — `docs/09-display-stage.md`'s Stage rebuild
+plus the global tabletop texture — is **built**; see the M5 notes below. Still
+outstanding: the cross-surface cohesion audit, the motion pass, the responsive
+pass and the PWA. Decisions already settled for those (2026-07-23), so don't
+re-open them: the PWA is **manifest + icons, no service worker** and still needs
+an icon asset drawn (the repo has none, and no `apps/client/public/` directory);
+the responsive pass covers the open floor, the board editor **and**
+lobby/home/results; the display's stage-① roast grid **scales its type down to
+fit** rather than clipping at large pools. There is currently not one responsive
+breakpoint utility in the whole client — that pass is greenfield, not a
+retro-fit, and `RoundScreen.svelte` (539 lines) is its biggest single item.
 
 M1 notes that still hold: pool distribution uses a round-robin *offset* — each
 player's whole K-name block rotates to exactly one other player, not a full
@@ -175,6 +175,49 @@ M4 notes for future sessions:
   since a locked cell leaves the `[role="button"]` set and shifts every index
   after it.
 
+M5 notes (slice 1 — display Stage + tabletop texture, built 2026-07-23):
+
+- **The Stage's "auto" House column is a container query, not `auto`.** CSS
+  sizes a grid track before the item's height exists, so a literal
+  `grid-template-columns: auto` collapses around an `aspect-ratio` board. The
+  built form makes the body row a size container (`.stage-body`) and writes the
+  column as `min(55cqw, calc(100cqh - var(--stage-house-chrome)))`. **An element
+  is never its own container** — that is the only reason the body row and the
+  column grid are two elements. Measured dead space in the House column is now
+  0 px at 1920×1080, 1900×910 and 1366×768 (it was ~121 px at 1900×910).
+- **`--stage-house-head` / `--stage-house-dread` are a contract between
+  `app.css` and `HousePanel.svelte`.** The heading and dread rows are *given*
+  those heights rather than measured, which is what makes the column-width
+  subtraction exact. Change one without the other and the dead space comes back.
+  It also hard-enforces "the panel's shape never changes between visibility
+  modes": all three modes render inside the same `w-full aspect-square` slot.
+- **The board is width-bound (`w-full aspect-square`), not height-bound.** The
+  column is already the *smaller* of the two constraints, so a square filling
+  its width always fits vertically; `h-full` would overflow horizontally
+  whenever the 55% clamp wins. Same lesson as `DisplayResults` above, arrived at
+  from the other direction.
+- **The House does resize across a *round* boundary** (~24 px) because the topic
+  lives in the header and a two-line topic shortens the body row. Within a round
+  the draw→open-floor delta is exactly 0. Accepted — see `docs/09`'s postscript
+  for why reserving two topic lines is the worse trade.
+- **The waiting-room chips' rotation is a lookup table, not arithmetic.** The
+  first version used `(i * 7) % 15 - 7`, which puts index 1 at exactly 0° — with
+  two players that is one tilted chip beside one untilted one, and it reads as a
+  bug. The table also guarantees neighbours never share a sign. Rotation is keyed
+  on the player's index in `players`, never on the sorted position, or every chip
+  twitches when someone joins the queue.
+- **Rotated chips bleed past their layout box** (~14 px on a full-width chip at
+  7°). The waiting room's `py-[1.5vh]` exists for that, not for rhythm; the worst
+  case is 12 players at 1920×900, where clearance to the "Called" heading is
+  11 px. Layout boxes themselves fit exactly — the flex rows stretch to the pane.
+- The texture ships to all three consumers. `body` carries it at 24 px;
+  `body.display-shell` overrides to 48 px and the class is added/removed by
+  `routes/Display.svelte` on mount, because `background-size` on a wrapper with
+  no `background-image` does nothing. `share.ts` draws the same tile in *logical*
+  units, so SCALE gives it 2× resolution at the same physical pitch. Verified in
+  an exported PNG: dot centres are exactly `#f0d0a8`, and 0 mark pixels landed
+  inside the 25 cells across 58k samples.
+
 The stack is Bun workspaces + Elysia server + Svelte 5 (runes) + Tailwind v4
 client + a shared `packages/protocol` zod package (see `docs/02-architecture.md`).
 
@@ -239,6 +282,7 @@ These recur across all docs and should shape any new design work:
 | `docs/06-key-screens.md` | The two hard screens: board editor & open floor interaction design |
 | `docs/07-design-system.md` | Visual language: colors, three-voice typography (EN+TH), shape, components |
 | `docs/08-deployment.md` | Ship recipe: shared VM + Caddy vhosts, TLS modes, compose, deploy flow |
+| `docs/09-display-stage.md` | Display Stage layout + the tabletop texture; built, with an implementation postscript |
 | `decks/general.json` | The seed deck (60 topics), loaded into SQLite on boot |
 | `decks/general.example.json` | Schema reference — deliberately skipped by the seeder |
 

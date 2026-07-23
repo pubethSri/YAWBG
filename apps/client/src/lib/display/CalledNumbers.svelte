@@ -17,9 +17,9 @@
   const ordered = $derived([...allDrawn].reverse());
 </script>
 
-<section class="flex min-w-0 flex-col gap-[0.8vh]">
+<section class="flex min-w-0 shrink-0 flex-col gap-[0.8vh]">
   <h2 class="font-ui text-d-heading font-bold text-ink-black">
-    Called <span class="tabular font-normal text-slate-gray">({allDrawn.length})</span>
+    Called <span class="tabular font-normal">({allDrawn.length})</span>
   </h2>
   <!-- Capped so a long game can't grow this row into the stage pane above it.
        Newest-first means the clip drops the oldest numbers, which is the right

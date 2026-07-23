@@ -3,8 +3,8 @@
   import { createCountdown } from "../countdown.svelte";
   import CalledNumbers from "./CalledNumbers.svelte";
   import HousePanel from "./HousePanel.svelte";
-  import PlayerStrip from "./PlayerStrip.svelte";
   import SpeechBubble from "./SpeechBubble.svelte";
+  import WaitingRoom from "./WaitingRoom.svelte";
   import Starburst from "../Starburst.svelte";
 
   /**
@@ -26,9 +26,6 @@
   const queue = $derived(round?.queue ?? []);
   const onStage = $derived(queue[0]);
   const stagePlayer = $derived(roomState.players.find((p) => p.id === onStage?.playerId));
-  const proposerIds = $derived(queue.map((q) => q.playerId));
-
-  const resolvedCount = $derived(roomState.players.filter((p) => p.resolved).length);
 
   // Client-local countdown: the server owns the real timer (see countdown.svelte.ts).
   // Keyed on the round, so the every-broadcast re-run doesn't re-arm it.
@@ -40,7 +37,7 @@
 
 {#if round}
   <!-- One screen, never scrolls: a projector has no scrollbar. -->
-  <div class="grid h-dvh grid-rows-[auto_minmax(0,1fr)_auto] gap-[2vh] overflow-hidden p-[2.5vw]">
+  <div class="grid h-dvh grid-rows-[auto_minmax(0,1fr)] gap-[2vh] overflow-hidden p-[2.5vw]">
     <!-- Header: the question everyone is answering, at 72px. -->
     <header class="flex min-w-0 items-start gap-[1.5vw]">
       <div class="flex shrink-0 flex-col items-start gap-[0.8vh]">
@@ -83,66 +80,73 @@
             {clock.secondsLeft}s
           </span>
         {/if}
-        <span class="tabular font-ui text-d-body-sm text-slate-gray">
-          {resolvedCount}/{roomState.players.length} resolved
-        </span>
       </div>
     </header>
 
-    <!-- Body: the House on the left, all game. Never moves. -->
-    <div class="grid min-h-0 grid-cols-[minmax(0,38%)_minmax(0,1fr)] gap-[2.5vw]">
-      {#if house}
-        <HousePanel {house} bingoTarget={roomState.settings.houseBingoTarget} />
-      {:else}
-        <div></div>
-      {/if}
+    <!-- Body: the House on the left, all game. Never moves.
 
-      <div class="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-[2vh]">
-        <!-- The one pane that changes: draw theatre, then the proposal on stage. -->
-        <div class="flex min-h-0 flex-col justify-center">
+         The House column is `auto`, not a percentage (docs/09 decision 1) — see
+         `.stage-columns` in app.css for why a percentage cannot be right on two
+         differently-shaped viewports. `.stage-body` exists only to be the size
+         container that column width is expressed against. -->
+    <div class="stage-body min-h-0">
+      <div class="stage-columns gap-[2.5vw]">
+        {#if house}
+          <HousePanel {house} bingoTarget={roomState.settings.houseBingoTarget} />
+        {:else}
+          <div></div>
+        {/if}
+
+        <!-- The right pane: [stage object] over [waiting room] over [called
+             numbers] (docs/09 decision 3). "The floor is open." and
+             "+N waiting to speak" were deleted rather than restyled — once the
+             pane shows who we are waiting for, both are narration of something
+             already visible. -->
+        <div class="flex min-h-0 flex-col gap-[2vh]">
           {#if isDrawing}
+            <!-- The waiting room is hidden for the draw: the queue is empty and
+                 everyone is unresolved, so the chips would be a wall of
+                 identical "deciding". Hiding them also keeps docs/07's
+                 one-moving-thing-per-screen rule honest during the showpiece.
+                 A content change *within* the layout — the House does not
+                 move, so docs/05 decision #3 holds. -->
             {#key round.drawnNumbers.join("-")}
               <!-- Square stickers, one size regardless of digit count. At the
                    1920px design target this puts the digits at roughly the
                    ramp's 160px; it scales down with the viewport from there. -->
-              <div class="anim-slam flex flex-wrap items-center justify-center gap-[2vw]">
+              <div
+                class="anim-slam flex min-h-0 flex-1 flex-wrap items-center justify-center gap-[2vw]"
+              >
                 {#each round.drawnNumbers as n (n)}
                   <Starburst label={String(n)} size="min(30vh, 22vw)" fill="coral" rotate={-5} />
                 {/each}
               </div>
             {/key}
-          {:else if onStage}
-            {#key onStage.playerId + onStage.cellIndex}
-              <div class="anim-pop">
-                <SpeechBubble>
-                  <p class="font-ui text-d-body-sm font-semibold uppercase tracking-[0.03em] text-slate-gray">
-                    On stage
-                  </p>
-                  <p class="mt-[0.5vh] font-ui text-d-body font-semibold text-ink-black">
-                    {stagePlayer?.name ?? "—"} proposes
-                  </p>
-                  <p class="mt-[1vh] break-words font-game text-d-verdict font-bold leading-[1.1] text-ink-black">
-                    {onStage.name}
-                  </p>
-                </SpeechBubble>
-              </div>
-            {/key}
-            {#if queue.length > 1}
-              <p class="mt-[3vh] pl-[2vw] font-ui text-d-body font-semibold text-slate-gray">
-                +{queue.length - 1} waiting to speak
-              </p>
-            {/if}
           {:else}
-            <p class="font-ui text-d-topic font-bold leading-[1.1] text-slate-gray">
-              The floor is open.
-            </p>
-          {/if}
-        </div>
+            {#if onStage}
+              {#key onStage.playerId + onStage.cellIndex}
+                <div class="anim-pop shrink-0">
+                  <SpeechBubble>
+                    <p class="font-ui text-d-body-sm font-semibold uppercase tracking-[0.03em] text-ink-black">
+                      On stage
+                    </p>
+                    <p class="mt-[0.5vh] font-ui text-d-body font-semibold text-ink-black">
+                      {stagePlayer?.name ?? "—"} proposes
+                    </p>
+                    <p class="mt-[1vh] break-words font-game text-d-verdict font-bold leading-[1.1] text-ink-black">
+                      {onStage.name}
+                    </p>
+                  </SpeechBubble>
+                </div>
+              {/key}
+            {/if}
 
-        <CalledNumbers allDrawn={round.allDrawn} current={round.drawnNumbers} />
+            <WaitingRoom players={roomState.players} {queue} />
+          {/if}
+
+          <CalledNumbers allDrawn={round.allDrawn} current={round.drawnNumbers} />
+        </div>
       </div>
     </div>
-
-    <PlayerStrip players={roomState.players} {proposerIds} context="round" />
   </div>
 {/if}

@@ -149,13 +149,23 @@ Every screen exists and works by the end of M4. This milestone makes the set
 cohere and covers non-phone form factors, so the first public build isn't
 embarrassing.
 
+Built in slices, each ending with a manual test the user runs before the next
+begins. Slice 1 (the display Stage + the texture) is done; the cohesion audit,
+motion pass, responsive pass and PWA are outstanding. Decisions settled for the
+remaining slices: the PWA is **manifest + icons, no service worker** (an icon
+asset still has to be drawn — the repo has none); the responsive pass covers
+the open floor, the board editor **and** the lobby/home/results screens; and
+the display's stage-① roast grid **scales its type down to fit** rather than
+clipping at large pools.
+
 - Cross-surface cohesion audit against `07-design-system.md`: the House board,
   cells, lock tags and status grids must read as the same objects on phone and
   display. Retro-fit anything M1/M2 shipped rough.
-- **Display Stage rebuild + canvas texture — designed ahead of time, see
+- **Display Stage rebuild + canvas texture — ✅ built (2026-07-23), see
   `09-display-stage.md`.** Column rebalance to make the House the largest
   object, the waiting room replacing the empty right pane, and the global
-  tabletop texture. Spec and manual test are written; only the build remains.
+  tabletop texture (all three consumers: `body`, the display's 48px override,
+  and the share-to-PNG export). No protocol change; `PROTOCOL_VERSION` stays 3.
 - Motion pass: draw-moment, lock, House-hit and results-reveal timings tuned
   together rather than per-screen.
 - Responsive pass per `06-key-screens.md` (player view only — the display is
