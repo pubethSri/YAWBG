@@ -1,4 +1,5 @@
 import type { TopicSource } from "./DeckStore";
+import type { GameLogSink } from "./GameLog";
 import { Room } from "./Room";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -6,6 +7,8 @@ const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export interface RoomOptions {
   graceMs: number;
   decks: TopicSource;
+  /** Absent in tests: rooms then finish without writing a log. */
+  log?: GameLogSink;
   distributeMs?: number;
   drawMs?: number;
   roundTimerMsPerSec?: number;

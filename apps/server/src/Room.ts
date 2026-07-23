@@ -19,6 +19,7 @@ import {
   type Topic,
 } from "@yawbg/protocol";
 import type { TopicSource } from "./DeckStore";
+import type { GameLogSink } from "./GameLog";
 import { bestLineNeeds, countLines } from "./lines";
 
 // Narrow view of an Elysia WS connection — keeps `any` at the handler boundary.
@@ -110,6 +111,9 @@ export class Room {
    */
   private roundTimer: ReturnType<typeof setTimeout> | null = null;
   private decks: TopicSource;
+  /** Optional on purpose: no sink, no log. Tests run without a database. */
+  private log: GameLogSink | undefined;
+  private gameLogged = false;
   private distributeMs: number;
   private drawMs: number;
   private roundTimerMsPerSec: number;
@@ -120,6 +124,7 @@ export class Room {
       graceMs: number;
       onEmpty: () => void;
       decks: TopicSource;
+      log?: GameLogSink;
       distributeMs?: number;
       drawMs?: number;
       roundTimerMsPerSec?: number;
@@ -129,6 +134,7 @@ export class Room {
     this.graceMs = opts.graceMs;
     this.onEmpty = opts.onEmpty;
     this.decks = opts.decks;
+    this.log = opts.log;
     this.distributeMs = opts.distributeMs ?? 4_000; // docs/05: "~4 s, auto-advances"
     this.drawMs = opts.drawMs ?? 2_500; // the draw-moment takeover
     // The setting is in seconds and the lobby's smallest option is 30, so tests
@@ -373,6 +379,20 @@ export class Room {
         }
         return { ok: true };
       }
+      case "results.advance": {
+        if (!player.isHost) return err("NOT_HOST", "only the host can pace the reveal");
+        if (this.phase !== "results") return err("WRONG_PHASE", "the game hasn't finished");
+        const next = this.nextRevealStage();
+        if (next === null) return err("WRONG_PHASE", "the reveal is already at the last stage");
+        this.results = { ...this.results!, revealStage: next };
+        return { ok: true };
+      }
+      case "game.playAgain": {
+        if (!player.isHost) return err("NOT_HOST", "only the host can start a new game");
+        if (this.phase !== "results") return err("WRONG_PHASE", "the game is still running");
+        this.resetForNewGame();
+        return { ok: true };
+      }
       default:
         return err("BAD_MESSAGE", `intent not handled here: ${intent.type}`);
     }
@@ -605,11 +625,75 @@ export class Room {
     this.clearRoundTimer();
     this.results = this.buildResults();
     this.phase = "results";
+    this.writeGameLog();
+  }
+
+  /**
+   * Stage 0 -> 1 -> 2, never backwards, and never past 2 (docs/03 invariant 10).
+   * K = 0 skips the authorship stage: with no pool there is nothing to roast,
+   * and a stage that renders an empty card is worse than no stage.
+   * Returns null when there is nowhere left to go.
+   */
+  private nextRevealStage(): 1 | 2 | null {
+    const stage = this.results?.revealStage ?? 0;
+    if (stage === 0) return this.settings.sabotageCells > 0 ? 1 : 2;
+    if (stage === 1) return 2;
+    return null;
+  }
+
+  /**
+   * Same room, same seats, same settings, fresh boards (docs/03 `game.playAgain`).
+   * Everything the round loop accumulated has to go: a survivor here is a bug
+   * that only shows up in the *second* game, which is the hardest kind to find.
+   */
+  private resetForNewGame(): void {
+    this.clearPhaseTimer();
+    this.clearRoundTimer();
+    this.house = null;
+    this.numberPile = [];
+    this.allDrawn = [];
+    this.roundNumber = 0;
+    this.roundDrawnNumbers = [];
+    this.topic = null;
+    this.topicPile = [];
+    this.usedTopics = [];
+    this.queue = [];
+    this.roundLocks = [];
+    this.roundHistory = [];
+    this.results = null;
+    this.lastCallDone = false;
+    this.gameLogged = false;
+    this.beginBoardFill(); // clears boards, pool slots, authors, fillDone, resolved
+  }
+
+  // Fire-and-forget: a log failure must never take a finished game down with it,
+  // and the sink is absent entirely in tests (no SQLite).
+  private writeGameLog(): void {
+    if (!this.log || this.gameLogged || !this.results) return;
+    this.gameLogged = true; // endGame runs once per game, but belt and braces
+    try {
+      this.log.record({
+        code: this.code,
+        endedAt: Date.now(),
+        settings: this.settings,
+        players: this.players.map((p) => ({
+          id: p.id,
+          name: p.name,
+          linesCompleted: this.countPlayerLines(p),
+          won: this.hasWon(p),
+        })),
+        // The full payload, not the staged view — the log is the record, and
+        // authorship is exactly the part a replay page would want.
+        results: this.results,
+      });
+    } catch (e) {
+      console.warn(`game log write failed for room ${this.code}:`, e);
+    }
   }
 
   private buildResults(): ResultsPayload {
     return {
-      revealStage: 0, // M4 paces this via results.advance
+      revealStage: 0, // the host paces it up from here via results.advance
       winners: this.players.filter((p) => this.hasWon(p)).map((p) => p.id),
       boards: this.players.map((p) => ({
         playerId: p.id,
@@ -744,8 +828,22 @@ export class Room {
       })),
       house: this.housePublic(),
       round: this.roundPublic(),
-      results: this.results,
+      results: this.resultsPublic(),
     };
+  }
+
+  /**
+   * `revealStage` gates what leaves the server, not merely what the client
+   * draws (see ResultsPayloadSchema.boards). `this.results` keeps the whole
+   * payload; stage 0 is the only stage that redacts, and it redacts boards
+   * entirely — names *and* authorship, since both first become visible at
+   * stage 1. Displays get this same frame, which is the point: one gate, one
+   * code path, no call site to remember.
+   */
+  private resultsPublic(): ResultsPayload | null {
+    if (!this.results) return null;
+    if (this.results.revealStage === 0) return { ...this.results, boards: [] };
+    return this.results;
   }
 
   // Sends every recipient the correct view: the shared public snapshot to

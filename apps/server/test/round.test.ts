@@ -355,13 +355,11 @@ describe("M2 round loop", () => {
     expect(s.round!.allDrawn.length).toBeGreaterThan(0);
 
     const r = s.results!;
-    expect(r.revealStage).toBe(0); // M4 paces the reveal; M2 parks it
-    expect(r.boards).toHaveLength(3);
-    for (const b of r.boards) {
-      expect(b.cells).toHaveLength(25);
-      for (const cell of b.cells) expect(cell.authorId).toBeNull(); // K=0: every name is self-authored
-    }
-    // Round 1's lock is recorded in the history.
+    // A game ends *at* stage 0, where boards are withheld from the wire.
+    expect(r.revealStage).toBe(0);
+    expect(r.boards).toEqual([]);
+    // The stage-0 facts are all there: winners, and history that only names
+    // already-public locks. Round 1's lock is one of them.
     expect(r.roundHistory[0]).toMatchObject({
       round: 1,
       locks: [{ playerId: g.ids[0]!, name: "host-0", cellIndex: 0 }],
@@ -371,6 +369,16 @@ describe("M2 round loop", () => {
     // One lock can't make a line, so with playerLinesToWin=1 nobody won.
     expect(r.winners).toEqual([]);
     expect(s.players[0]!.linesCompleted).toBe(0);
+
+    // K = 0, so the host's first advance skips the authorship stage entirely.
+    g.host.send({ type: "results.advance", payload: {} });
+    const revealed = (await drainUntil(g.all, (x) => x.results!.revealStage > 0)).results!;
+    expect(revealed.revealStage).toBe(2);
+    expect(revealed.boards).toHaveLength(3);
+    for (const b of revealed.boards) {
+      expect(b.cells).toHaveLength(25);
+      for (const cell of b.cells) expect(cell.authorId).toBeNull(); // K=0: every name is self-authored
+    }
 
     for (const c of g.all) c.close();
   }, 30_000);

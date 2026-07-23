@@ -165,6 +165,7 @@ interface PrivateBoard { cells: PrivateCell[]; poolSlots: (string | null)[]; }
 
 interface ResultsPayload {
   revealStage: 0 | 1 | 2;   // host-paced: ⓪ winners → ① pool authorship → ② boards + share
+                            // boards is [] at stage ⓪ — the stage gates the wire, see below
   winners: string[];                                  // playerIds
   boards: { playerId: string;
             cells: { name: string; authorId: string | null;  // null = self
@@ -191,6 +192,19 @@ interface ResultsPayload {
 9. Intents from disconnected/removed players are dropped.
 10. `results.advance`: host-only, `results` phase only, stages advance
     monotonically; when K = 0 the authorship stage (①) is skipped.
+11. **`revealStage` gates the wire, not just the render.** `results.boards` is
+    `[]` while `revealStage` is 0, on every socket including displays: the
+    authorship roast is the game's best moment and shipping it a stage early
+    spoils it for anyone with devtools open. Stage ① is where cell names and
+    `authorId` first travel — the same gate covers both, because the roast is
+    made of exactly that data. `winners` and `roundHistory` ship at every
+    stage; a history entry names only *locked* cells, which have been public
+    since the round they happened in. Per-recipient redaction is deliberately
+    not an option: the results payload rides the one public frame that also
+    feeds displays, and one gate on one code path is what makes the invariant
+    hold without call sites having to remember it.
+12. `game.playAgain`: host-only, `results` phase only. Same seats, same
+    settings, everything the round loop accumulated cleared → `board_fill`.
 
 ## Wire-size note
 

@@ -127,12 +127,22 @@ export const RoundHistoryEntrySchema = z.object({
 export type RoundHistoryEntry = z.infer<typeof RoundHistoryEntrySchema>;
 
 export const ResultsPayloadSchema = z.object({
-  // Host-paced: 0 winners -> 1 pool authorship -> 2 boards + share. M2 parks
-  // this at 0 and renders the plain reveal; M4 adds results.advance over a
-  // payload that is already complete, rather than changing the protocol again.
+  // Host-paced: 0 winners -> 1 pool authorship -> 2 boards + share, driven by
+  // the host-only `results.advance` intent. When K = 0 stage 1 is skipped
+  // (docs/03 invariant 10) — there is no pool to roast.
   revealStage: z.union([z.literal(0), z.literal(1), z.literal(2)]),
   winners: z.array(z.string()), // playerIds
+  /**
+   * **Empty at stage 0.** The stage gates the wire, not just the render: the
+   * authorship roast is the best moment in the game and shipping it one stage
+   * early would spoil it for anyone with devtools open. Stage 1 is where names
+   * and `authorId` first travel, and it is also what the roast is made of, so
+   * the two stages share one gate. Redacting per-recipient is not an option —
+   * this payload rides the single public frame that also feeds displays.
+   */
   boards: z.array(ResultsBoardSchema),
+  // Sent at every stage: a history entry only names *locked* cells, and locks
+  // have been public since the round they happened in.
   roundHistory: z.array(RoundHistoryEntrySchema),
 });
 export type ResultsPayload = z.infer<typeof ResultsPayloadSchema>;

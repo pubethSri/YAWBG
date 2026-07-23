@@ -46,6 +46,8 @@ describe("intents", () => {
     { type: "round.withdraw", payload: {} },
     { type: "round.pass", payload: {} },
     { type: "round.forceAdvance", payload: {} },
+    { type: "results.advance", payload: {} },
+    { type: "game.playAgain", payload: {} },
   ];
 
   test.each(intents.map((i) => [i.type, i] as const))("%s round-trips", (_type, intent) => {
@@ -93,8 +95,10 @@ describe("PublicRoomState", () => {
     expect(PublicRoomStateSchema.safeParse(bad).success).toBe(false);
   });
 
-  test("PROTOCOL_VERSION is 2", () => {
-    expect(PROTOCOL_VERSION).toBe(2);
+  // Asserted as a literal on purpose: bumping the version has to be a deliberate
+  // act that fails this test, not something that rides along with a schema edit.
+  test("PROTOCOL_VERSION is 3", () => {
+    expect(PROTOCOL_VERSION).toBe(3);
   });
 
   test("cellIndex out of range rejected", () => {

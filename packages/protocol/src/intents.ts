@@ -105,6 +105,21 @@ export const RoundForceAdvanceIntentSchema = z.object({
   payload: z.object({}),
 });
 
+// Host-only (★ in docs/03-protocol.md); enforcement lives in Room.handleIntent.
+// Advances the synchronized reveal: ⓪ winners -> ① pool authorship -> ② boards.
+// Carries no target stage — the server owns the sequence, so two hosts' taps
+// racing can never land the room on two different stages.
+export const ResultsAdvanceIntentSchema = z.object({
+  type: z.literal("results.advance"),
+  payload: z.object({}),
+});
+
+// Host-only. Same lobby, same settings, same seats, fresh boards -> board_fill.
+export const GamePlayAgainIntentSchema = z.object({
+  type: z.literal("game.playAgain"),
+  payload: z.object({}),
+});
+
 export const ClientIntentSchema = z.discriminatedUnion("type", [
   RoomCreateIntentSchema,
   RoomJoinIntentSchema,
@@ -124,5 +139,7 @@ export const ClientIntentSchema = z.discriminatedUnion("type", [
   RoundWithdrawIntentSchema,
   RoundPassIntentSchema,
   RoundForceAdvanceIntentSchema,
+  ResultsAdvanceIntentSchema,
+  GamePlayAgainIntentSchema,
 ]);
 export type ClientIntent = z.infer<typeof ClientIntentSchema>;

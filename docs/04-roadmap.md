@@ -10,6 +10,15 @@ friends' hands and let playtest feedback accumulate while local work continues.
 Decks & admin was the safest thing to defer: the seeded `general` deck ships
 from JSON, so a public build needs no deck UI at all.
 
+**Part of M5 was pulled ahead of M4** (2026-07-23): the display Stage's cohesion
+pass and a new global canvas texture were designed before the results reveal
+exists, because the TV is what a playtest audience actually stares at and M3
+shipped it structurally sound but visually sparse. The design is settled and
+written down — `07-design-system.md` (the texture) and `09-display-stage.md`
+(the Stage layout) — but **not built**. M4 still comes next in build order; the
+implementer takes `09` whenever the polish slot opens. The rest of M5 (motion
+pass, player-view responsive, PWA manifest) is untouched and stays in M5.
+
 ## Design runway (now, before/alongside M0)
 
 Design-phase artifacts, in their intended order:
@@ -120,6 +129,20 @@ worth carrying forward:
 
 **Exit test:** a board screenshot gets posted to the group chat unprompted.
 
+Built at **`PROTOCOL_VERSION` 3**: the `ResultsPayload` shape was already
+complete at M2, but `results.advance` and `game.playAgain` were specified in
+`03-protocol.md` and never implemented, so the intent union grew. Three
+decisions worth carrying forward:
+
+- **The reveal stage gates the wire.** `results.boards` is empty at stage ⓪ on
+  every socket including displays, so the authorship roast cannot be spoiled
+  from devtools (`03-protocol.md` invariant 11).
+- **The game log is an injected sink, not a `Room` dependency.** SQLite gained
+  a `games` table, and the server tests still never open a database.
+- **The PNG export ships without the tabletop texture**, on plain cream, with a
+  `TODO(M5)` — the texture is designed (`07-design-system.md`) but not built.
+  M5 owns making the export carry it.
+
 ## M5 — Polish & responsive *(make it look finished)*
 
 Every screen exists and works by the end of M4. This milestone makes the set
@@ -129,6 +152,10 @@ embarrassing.
 - Cross-surface cohesion audit against `07-design-system.md`: the House board,
   cells, lock tags and status grids must read as the same objects on phone and
   display. Retro-fit anything M1/M2 shipped rough.
+- **Display Stage rebuild + canvas texture — designed ahead of time, see
+  `09-display-stage.md`.** Column rebalance to make the House the largest
+  object, the waiting room replacing the empty right pane, and the global
+  tabletop texture. Spec and manual test are written; only the build remains.
 - Motion pass: draw-moment, lock, House-hit and results-reveal timings tuned
   together rather than per-screen.
 - Responsive pass per `06-key-screens.md` (player view only — the display is

@@ -200,6 +200,15 @@ class GameSocket {
     this.send({ type: "round.forceAdvance", payload: {} });
   }
 
+  /** Host-only. The server owns the stage sequence; this just nudges it on. */
+  advanceReveal(): void {
+    this.send({ type: "results.advance", payload: {} });
+  }
+
+  playAgain(): void {
+    this.send({ type: "game.playAgain", payload: {} });
+  }
+
   leave(): void {
     // Only forget the seat if the server actually heard us; otherwise keep the
     // session so grace + resume can still reclaim or clean up the seat rather

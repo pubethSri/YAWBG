@@ -2,15 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: implementation started — M0 through M3 shipped
+## Project status: implementation started — M0 through M4 shipped
 
 The design phase is complete (`docs/` holds the artifacts). **M0 — skeleton**,
-**M1 — lobby & board fill**, **M2 — core round loop** and **M3 — display &
-drama** are built; the game is playable start to results on phones, with a
-styled read-only display. The repo is a Bun workspaces monorepo alongside the
-design docs. Next up is **M4 — Results, reveal & share** (see
-`docs/04-roadmap.md`). Build milestone by milestone; don't design or build
-against the roadmap's deferred lists without flagging it.
+**M1 — lobby & board fill**, **M2 — core round loop**, **M3 — display &
+drama** and **M4 — results, reveal & share** are built; the game plays start to
+finish and back again (`game.playAgain`), with a styled read-only display and a
+share-to-PNG export. The repo is a Bun workspaces monorepo alongside the design
+docs. Next up is **M5 — Polish & responsive** (see `docs/04-roadmap.md`), whose
+display-Stage half is already specced in `docs/09-display-stage.md`. Build
+milestone by milestone; don't design or build against the roadmap's deferred
+lists without flagging it.
 
 The post-M2 order is **M3 display → M4 results → M5 polish & responsive → M6
 deploy & playtest → M7 decks & admin → M8 hardening**: polish and deployment
@@ -18,6 +20,19 @@ were moved ahead of decks/admin so friends can playtest a real build while
 local work continues. The display ships *styled* in M3 (legibility across a
 room is what its exit test measures); M5 owns cross-surface cohesion, motion
 timing and the player-view responsive pass.
+
+**`docs/09-display-stage.md` is designed but NOT built.** A design-only session
+(2026-07-23) specced the display Stage polish and a new global canvas texture —
+both M5 work, settled ahead of time so the TV looks right for the first
+playtest. `09` holds the Stage layout and a 25-step manual test; `docs/07` holds
+the texture's token (`--color-tabletop-mark`), its measured contrast rows and
+its rules. It is now the next thing to build. If you are about to touch
+`apps/client/src/lib/display/` or `app.css`'s `body` rule, read `09` first — it
+explains, among other things, why the House column must be `auto` and not a
+percentage. The texture also has a second consumer waiting: the share-to-PNG
+export is specified to carry it at the base 24 px pitch, and
+`apps/client/src/lib/share.ts` renders on plain cream with a `TODO(M5)` until
+it lands.
 
 M1 notes that still hold: pool distribution uses a round-robin *offset* — each
 player's whole K-name block rotates to exactly one other player, not a full
@@ -39,11 +54,14 @@ M2 notes for future sessions:
 - **`Player.authors[]` is server-only** and is the *only* record of who wrote
   each pool name — it must never move onto `PrivateCell`, which ships to the
   owner every snapshot while authorship stays hidden until results.
-- `results` already carries the full `ResultsPayload` (winners, boards with
-  `authorId`, `roundHistory`) with `revealStage` parked at `0`. M4 adds the
-  host-paced sequence over it with **no protocol change**.
-- `PROTOCOL_VERSION` is now **2**; `packages/protocol/test/protocol.test.ts`
-  asserts the literal on purpose, so bumping it fails that test by design.
+- `results` already carried the full `ResultsPayload` (winners, boards with
+  `authorId`, `roundHistory`) at M2, with `revealStage` parked at `0`. M4 added
+  the host-paced sequence over that **state shape** unchanged — but it did add
+  two *intents*, so it was not a no-protocol-change milestone. (An earlier
+  version of this file claimed it would be; that was wrong, and it cost a
+  session's planning time.)
+- `packages/protocol/test/protocol.test.ts` asserts `PROTOCOL_VERSION` as a
+  literal on purpose, so bumping it fails that test by design.
 - SQLite (`bun:sqlite`) holds decks only; live game state stays memory-only and
   a restart dropping in-progress games is accepted. Tests inject a fake
   `TopicSource` (`apps/server/test/TestClient.ts`) so they never open a DB.
@@ -95,6 +113,68 @@ M3 notes for future sessions:
   state. Colour fills transition (the named moments ask for it); nothing that
   reflows the board grid is ever animated.
 
+M4 notes for future sessions:
+
+- **`PROTOCOL_VERSION` is now 3.** M4 added `results.advance` and
+  `game.playAgain` — both host-only, both `{}` payloads, both enforced in
+  `Room.handleIntent` rather than in the schema (the ★ in `docs/03`'s intent
+  table means *host-only*, not *unimplemented*).
+- **`revealStage` gates what the server sends, not just what clients draw.**
+  `results.boards` is `[]` at stage ⓪ on every socket, displays included;
+  `Room.resultsPublic()` is the single redaction point and `this.results` keeps
+  the whole payload behind it. `winners` and `roundHistory` ship at every stage
+  — a history entry names only locked cells, which were already public. Stage ①
+  is where names *and* `authorId` first travel, under one gate, because the
+  roast is made of exactly that data. Per-recipient redaction was rejected: the
+  payload rides the one public frame that also feeds the TV. See `docs/03`
+  invariant 11.
+- **The game log is an injected sink (`GameLogSink`), not a `Room`
+  dependency** — the same seam shape as `TopicSource`. A room built without one
+  simply doesn't log, which is what keeps the server tests free of SQLite;
+  `createApp({ log })` takes a fake, and `log: null` disables it. `Room` calls
+  it fire-and-forget inside a try/catch: a log failure must never take a
+  finished game down with it. The `games` table is one flat row with JSON
+  columns on purpose (see `GameLog.ts` for why normalizing now would serve no
+  query).
+- **`resetForNewGame()` has to clear everything the round loop accumulated.** A
+  survivor there is a bug that only appears in the *second* game of a session,
+  which is the worst kind to reproduce — the reset is deliberately exhaustive
+  rather than clever.
+- **Share-to-PNG is `lib/share.ts`, canvas only** (server-side image rendering
+  is a v1 non-goal). Colours are read off `:root` with `getComputedStyle`, so no
+  hex is duplicated out of `app.css`, and a dismissed share sheet throws
+  `AbortError` — a cancellation, which must not fall through to a surprise
+  download. Two traps found by the first playtest:
+  - **`ensureFonts()` must request every (family, *weight*) pair the render
+    draws with**, each with sample text in its own script. Canvas never triggers
+    a font download and `document.fonts.ready` only waits for loads something
+    asked for. Getting the list wrong doesn't look like a font bug, it looks
+    like a *layout* bug: `measureText` runs against the fallback, says a name
+    fits on one line, and the paint lands ~3% wider and out of its cell. Missing
+    Kanit **700** did exactly that to Thai names while 600/800 were listed.
+  - **The header baselines and `BOARD_TOP` are derived constants, not hand-tuned
+    numbers.** The first version hardcoded a 210px header while the last
+    baseline sat at 224, so "N lines completed" rendered under row 1 of the
+    board. `BOARD_TOP` is now `max()`-ed off both the last baseline and the
+    starburst's reach; add a header line and it still can't collide.
+  - `wrap()` guarantees no returned line exceeds `maxWidth` — it breaks inside a
+    word when it has to, on grapheme clusters so a Thai tone mark is never
+    stranded from its base. Thai doesn't space its words, so the break-inside
+    path is not an edge case there.
+- **On the display, anything square must be constrained on both axes.**
+  `DisplayResults`'s stage-② boards used `aspect-square` inside a `1fr` column;
+  at two players a column is ~46vw, so the board demanded ~46vw of *height* and
+  the bottom row fell off a screen that never scrolls. They are now
+  `w-[min(100%,64vh)]` — the same rule `Starburst` follows, and the same failure
+  `docs/09` warns about for the House column. Verify with
+  `scrollHeight === clientHeight` at 1920×1080, 1920×900 and 1366×768.
+- Driving a game to results by hand is slow, and **scripted drivers only work
+  with the Browser pane fronted**: a hidden pane throttles timers enough that
+  force-advance sequences silently stall mid-round. Sheets swallow later clicks
+  too — send `Escape` between steps, and pick board cells by their *name* text,
+  since a locked cell leaves the `[role="button"]` set and shifts every index
+  after it.
+
 The stack is Bun workspaces + Elysia server + Svelte 5 (runes) + Tailwind v4
 client + a shared `packages/protocol` zod package (see `docs/02-architecture.md`).
 
@@ -103,7 +183,7 @@ Commands (run from the repo root; requires Bun):
 | Command | Does |
 |---|---|
 | `bun install` | Install all workspaces (single root `bun.lock`) |
-| `bun test` | Protocol round-trip, bingo lines, server WS integration + full round loop |
+| `bun test` | Protocol round-trip, bingo lines, server WS integration, full round loop, results reveal + game log |
 | `bun run check` | `tsc --noEmit` (server+protocol) and `svelte-check` (client) |
 | `bun run dev:server` | Elysia server on :3000 (serves `apps/client/dist` + `/ws` + `/healthz` + `/api/decks`) |
 | `bun run dev:client` | Vite dev server on :5173 (proxies `/ws` to :3000) |

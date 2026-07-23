@@ -8,6 +8,7 @@ import {
   type ServerMessage,
 } from "@yawbg/protocol";
 import { DeckStore, type TopicSource } from "./DeckStore";
+import { GameLogStore, type GameLogSink } from "./GameLog";
 import { openDb } from "./db";
 import { MAX_PLAYERS, type Socket } from "./Room";
 import { RoomManager } from "./RoomManager";
@@ -22,6 +23,12 @@ export interface AppOptions {
   decksDir?: string | null;
   /** Test override — bypasses SQLite entirely. */
   decks?: TopicSource;
+  /**
+   * Where finished games are recorded. Defaults to the same SQLite file the
+   * decks live in; `null` disables logging, and a fake sink lets a test assert
+   * the write without a database.
+   */
+  log?: GameLogSink | null;
   /** Pool-deal reveal window before auto-advancing into the first draw. */
   distributeMs?: number;
   /** Draw-moment window before the floor opens. */
@@ -63,21 +70,26 @@ export function createApp(opts: AppOptions = {}) {
 
   let decks: TopicSource;
   let deckList: () => unknown;
+  // Undefined means "derive from the database"; explicit null means "don't log".
+  let log: GameLogSink | undefined = opts.log ?? undefined;
   if (opts.decks) {
     decks = opts.decks;
     deckList = () => [];
   } else {
-    const store = new DeckStore(openDb(opts.dbPath ?? process.env.DB_PATH ?? "yawbg.sqlite"));
+    const db = openDb(opts.dbPath ?? process.env.DB_PATH ?? "yawbg.sqlite");
+    const store = new DeckStore(db);
     const decksDir =
       opts.decksDir === undefined ? join(import.meta.dir, "../../../decks") : opts.decksDir;
     if (decksDir) store.seedFromDir(decksDir);
     decks = store;
     deckList = () => store.list();
+    if (opts.log === undefined) log = new GameLogStore(db);
   }
 
   const manager = new RoomManager({
     graceMs,
     decks,
+    log,
     distributeMs: opts.distributeMs,
     drawMs: opts.drawMs,
     roundTimerMsPerSec: opts.roundTimerMsPerSec,
@@ -279,7 +291,9 @@ export function createApp(opts: AppOptions = {}) {
         case "round.confirm":
         case "round.withdraw":
         case "round.pass":
-        case "round.forceAdvance": {
+        case "round.forceAdvance":
+        case "results.advance":
+        case "game.playAgain": {
           const { code, playerId } = session as { code: string; playerId: string };
           const room = manager.get(code);
           if (!room) return;
