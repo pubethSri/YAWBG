@@ -177,6 +177,37 @@ clipping at large pools.
 **Exit test:** the game looks deliberate on a phone, a tablet and a laptop, and
 nothing on screen looks like a placeholder.
 
+## M5.5 — The highlight reel & cheers *(the ending the game deserves)*
+
+Inserted (2026-07-23) between M5 and M6 rather than renumbering M6–M8, which
+would churn every doc that references them. Designed in full ahead of the build:
+see **`10-highlight-reel.md`** for the layout, the mechanic and the protocol.
+
+Sequenced before the first playtest deliberately. It changes the round loop, so
+retrofitting it after M6 would mean a second protocol bump *and* a second
+playtest to judge it — and the ending is exactly the part of the game a playtest
+has opinions about.
+
+- **A fourth reveal stage (③).** After the boards, a rotating card shows one
+  round's topic and every name proposed for it — locked and **withdrawn** alike.
+  `game.playAgain` moves here, so the host paces the reel by staying on it.
+- **Cheers.** Any player may applaud any name proposed in the current round.
+  The tally is hidden until stage ③, where it orders the cards and crowns a
+  crowd favourite. It gates nothing and scores nothing.
+- Game log persists the reel.
+
+Built at **`PROTOCOL_VERSION` 4**, once, in two slices: the reel first, cheers
+second. `round.cheer` ships in the schema and is rejected by `Room` until slice
+2 — `03-protocol.md` marks it ✎ for exactly that reason.
+
+**Scope-wall note:** `02-architecture.md` bans in-app voting/judging. Cheers
+clear that wall because they decide nothing *and* are invisible while decisions
+are live; the second half of that sentence is load-bearing and is written up in
+`10`. Flagged rather than assumed, per the convention below.
+
+**Exit test:** the room keeps watching the screen after the game is over, and
+somebody says "wait, go back to that one."
+
 ## M6 — Ship it *(first public build; playtesting starts here)*
 
 Cutover per `08-deployment.md` — shared org VM behind Caddy, compose, the
@@ -214,7 +245,9 @@ Driven by what M6 actually surfaced, not guessed in advance.
 
 ## Deliberately deferred (post-v1 ideas, keep out of scope)
 
-- In-app voting/judging for fully-remote play.
+- In-app voting/judging for fully-remote play. (Still deferred. **Cheers in
+  M5.5 are not this** — they decide nothing and are hidden while decisions are
+  live; see `10-highlight-reel.md`.)
 - Fancy web share page with game replay (game logs already make this possible).
 - Custom per-room topic submissions ("write a topic" party mode).
 - Accounts/stats for players.

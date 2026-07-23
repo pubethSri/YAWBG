@@ -51,6 +51,12 @@ ever declared outside the protocol package.**
 | `round.withdraw` | `{}` | Own proposal; name stays free; player may re-propose or pass this round |
 | `round.pass` | `{}` | Marks player resolved (= ready). Revocable until round advances? **No** — pass is final for the round (keeps advance logic simple) |
 | `round.forceAdvance` ★ | `{}` | Host skips unresolved players (they auto-pass); also auto-withdraws a stalled pending proposal |
+| `round.cheer` ✎ | `{ proposalId, on }` | Applaud any name proposed **this** round, withdrawn ones included. Never your own; at most one per (player, proposal); `on` is explicit so a retry is idempotent. **No count is public until `revealStage` 3** — see `10-highlight-reel.md` |
+
+✎ marks a **designed, not yet implemented** intent (protocol v4). It is in the
+schema and rejected by `Room` until the reel milestone's second slice lands.
+The ★/✎ distinction matters: ★ means *host-only*, ✎ means *not live yet*.
+Assuming ★ meant "unimplemented" cost a session's planning time once already.
 
 Round auto-advances to the next `draw` when **every** player is resolved —
 including disconnected ones, who are treated as not-yet-resolved per the
@@ -126,7 +132,10 @@ interface PublicPlayer {
   hasWon: boolean;                    // linesCompleted ≥ playerLinesToWin
 }
 
-interface Proposal { playerId: string; cellIndex: number;
+// `id` is server-assigned and unique for the game: (playerId, cellIndex) is NOT
+// a safe key, because a player may withdraw and re-propose the same cell in one
+// round. Added in v4 for the reel (`10-highlight-reel.md`).
+interface Proposal { id: string; playerId: string; cellIndex: number;
                      name: string; }  // name is public the moment it's proposed
 
 type HousePublic =
@@ -151,7 +160,12 @@ interface PublicRoomState {
     drawnNumbers: number[];          // this round (length = drawsPerRound)
     allDrawn: number[];              // whole game, for the display's called-number board
     topic: { id: string; text: string } | null;
-    queue: Proposal[];               // FIFO; index 0 is "on stage"
+    queue: Proposal[];               // FIFO of *live* proposals; index 0 is "on stage"
+    // v4: everything proposed this round, in the order made — withdrawn ones
+    // included, so they can still be cheered and still reach the reel. Carries
+    // no cheer counts. Cleared with the round.
+    proposals: { proposal: Proposal;
+                 outcome: 'live' | 'locked' | 'withdrawn' }[];
   } | null;
   results: ResultsPayload | null;    // phase === 'results'
 }
@@ -161,11 +175,20 @@ interface PrivateCell {
   fromPool: boolean;                 // author hidden until results
   locked: LockTag | null;
 }
-interface PrivateBoard { cells: PrivateCell[]; poolSlots: (string | null)[]; }
+interface PrivateBoard {
+  cells: PrivateCell[];
+  poolSlots: (string | null)[];
+  // v4: which proposals *I* have cheered this round. On the private frame, not
+  // client-local, so a reconnect can't let a player cheer the same name twice —
+  // and not on the public frame, which also feeds the display.
+  cheeredProposalIds: string[];
+}
 
 interface ResultsPayload {
-  revealStage: 0 | 1 | 2;   // host-paced: ⓪ winners → ① pool authorship → ② boards + share
-                            // boards is [] at stage ⓪ — the stage gates the wire, see below
+  revealStage: 0 | 1 | 2 | 3;  // host-paced: ⓪ winners → ① pool authorship
+                               // → ② boards + share → ③ the reel (v4)
+                               // boards is [] below ①, reel is [] below ③ —
+                               // the stage gates the wire, see below
   winners: string[];                                  // playerIds
   boards: { playerId: string;
             cells: { name: string; authorId: string | null;  // null = self
@@ -174,6 +197,15 @@ interface ResultsPayload {
                   topicText: string;
                   locks: { playerId: string; name: string;
                            cellIndex: number }[] }[];
+  // v4. Overlaps roundHistory on locked names deliberately: roundHistory is the
+  // always-public record, reel is the gated one, and merging them would put a
+  // gated field inside an ungated structure. `playerName` is carried rather
+  // than looked up because a player removed at grace expiry is no longer in
+  // `players`.
+  reel: { round: number; topicText: string; drawnNumbers: number[];
+          entries: { proposalId: string; playerId: string; playerName: string;
+                     name: string; outcome: 'locked' | 'withdrawn';
+                     cheers: number }[] }[];
 }
 ```
 
@@ -205,6 +237,20 @@ interface ResultsPayload {
     hold without call sites having to remember it.
 12. `game.playAgain`: host-only, `results` phase only. Same seats, same
     settings, everything the round loop accumulated cleared → `board_fill`.
+    From v4 that includes the per-round proposal records the reel is built from.
+13. ✎ `round.cheer`: `open_floor`/`last_call` only; the proposal must belong to
+    the **current** round; never your own proposal; at most one cheer per
+    (player, proposal). A cheer survives its proposal being withdrawn — that is
+    the feature, not a leak. The `cheeredBy` set stays server-side: only its
+    size ever ships, so who cheered what is never published and cheering costs
+    nothing socially.
+14. ✎ **`revealStage` gates `reel` exactly as it gates `boards`.**
+    `results.reel` is `[]` while `revealStage < 3`, on every socket including
+    displays. The cheer tally is the surprise; leaking it early spoils the reel
+    the way an early `boards` would spoil the authorship roast. **No cheer count
+    is public at any point while the game is still being played** — that is what
+    keeps the mechanic applause rather than a verdict, and what keeps it inside
+    the "no in-app voting/judging" wall in `02`. See `10-highlight-reel.md`.
 
 ## Wire-size note
 

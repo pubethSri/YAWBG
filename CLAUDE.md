@@ -34,6 +34,27 @@ fit** rather than clipping at large pools. There is currently not one responsive
 breakpoint utility in the whole client — that pass is greenfield, not a
 retro-fit, and `RoundScreen.svelte` (539 lines) is its biggest single item.
 
+**`docs/10-highlight-reel.md` is designed but NOT built, and it is what the next
+session builds** — ahead of M5's remaining slices, by decision (2026-07-23). It
+adds a fourth results stage (a rotating card pairing each round's topic with
+every name proposed for it, **withdrawn ones included**) plus a *cheer*
+mechanic. It is the first thing since M4 to change the wire:
+**`PROTOCOL_VERSION` 3 → 4**, once, for both build slices. Three things to know
+before touching it:
+
+- **The hidden tally is a rule, not a presentation choice.** Cheers clear the
+  "no in-app voting/judging" wall in `docs/02` only because no count is visible
+  while any decision is live. Making it live would re-open the scope wall.
+  `docs/01`, `docs/03` invariant 14 and `docs/10` all say this; don't relax it
+  in one of them.
+- **`round.cheer` ships in the schema before it works.** `docs/03` marks it ✎
+  (designed, not live) as distinct from ★ (host-only), because assuming ★ meant
+  "unimplemented" cost a session's planning time at M4. Slice 1 is the reel with
+  every `cheers` at 0; slice 2 makes the intent do something.
+- **The proposal record is new server state that `resetForNewGame()` must
+  clear**, and it is exactly the kind of survivor that only breaks the *second*
+  game of a session.
+
 M1 notes that still hold: pool distribution uses a round-robin *offset* — each
 player's whole K-name block rotates to exactly one other player, not a full
 cross-player shuffle of individual names. The board editor implements
@@ -283,6 +304,7 @@ These recur across all docs and should shape any new design work:
 | `docs/07-design-system.md` | Visual language: colors, three-voice typography (EN+TH), shape, components |
 | `docs/08-deployment.md` | Ship recipe: shared VM + Caddy vhosts, TLS modes, compose, deploy flow |
 | `docs/09-display-stage.md` | Display Stage layout + the tabletop texture; built, with an implementation postscript |
+| `docs/10-highlight-reel.md` | **Next to build.** The results reel, the cheer mechanic, and the v4 protocol shapes |
 | `decks/general.json` | The seed deck (60 topics), loaded into SQLite on boot |
 | `decks/general.example.json` | Schema reference — deliberately skipped by the seeder |
 

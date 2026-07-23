@@ -29,6 +29,7 @@ accounts, join by 4-letter room code.
 | 07 | [`07-design-system.md`](07-design-system.md) | Visual language: sticker-bombed-tabletop theme, color tokens + measured contrast table + game-state mapping, three-voice typography (Fraunces / Inter+Kanit / Baloo 2, Thai included), shape & the die-cut ring, motion, component recipes, Tailwind `@theme` quick start | You're styling anything. Light-only for v1 |
 | 08 | [`08-deployment.md`](08-deployment.md) | Ship recipe: shared org VM with *ito* via Caddy vhosts, TLS modes (incl. org certs), compose layout, proxy WS requirements, deploy flow, SQLite backup | You're deploying, or touching proxy/TLS/compose |
 | 09 | [`09-display-stage.md`](09-display-stage.md) | **Built.** Display Stage layout spec: auto-sized House, the waiting room replacing the empty right pane, three removals, colour budget; the 25-step manual test; and an implementation postscript on why the "auto" column is a container query | You're touching the display Stage, or wondering why the House column isn't a percentage |
+| 10 | [`10-highlight-reel.md`](10-highlight-reel.md) | **Designed, not built.** The fourth results stage: rotating cards pairing a round's topic with every name proposed for it (withdrawn included), plus the **cheer** mechanic, its hidden tally, the v4 protocol shapes and a 22-step manual test | You're building M5.5, or you need to know why cheers aren't voting |
 
 Seed topic decks live outside `docs/` in [`../decks/`](../decks/):
 `general.json` is the deck that actually ships (upserted into SQLite on boot),
@@ -45,14 +46,21 @@ these docs. See `04-roadmap.md` for milestone status and `../CLAUDE.md` for the
 command list and implementation notes.
 
 The post-M2 roadmap was **reordered** (2026-07-23) to ship a public build
-early: M3 display → M4 results → M5 polish & responsive → M6 deploy & playtest
-→ M7 decks & admin → M8 hardening. The display ships styled in M3 rather than
-waiting for M5 — see the note at the top of that milestone.
+early: M3 display → M4 results → M5 polish & responsive → M5.5 reel → M6 deploy
+& playtest → M7 decks & admin → M8 hardening. The display ships styled in M3
+rather than waiting for M5 — see the note at the top of that milestone.
 
 M5's first slice — the display Stage rebuild and the global tabletop texture,
 designed ahead of time in `09` — is **built** (2026-07-23). Outstanding in M5:
 the cohesion audit, the motion pass, the player-view responsive pass and the
 PWA. `PROTOCOL_VERSION` is **3**.
+
+**M5.5 was inserted** (2026-07-23) between polish and ship: a fourth results
+stage that replays each round's topic beside every name proposed for it, plus a
+*cheer* mechanic whose tally stays hidden until that reveal. Designed in full in
+`10`, not built. It bumps the protocol to **4**. It sits before the playtest on
+purpose — it changes the round loop, so doing it afterwards would cost a second
+bump and a second playtest.
 
 Two rulings settled during M2 that these artifacts now reflect:
 
@@ -76,7 +84,9 @@ Two rulings settled during M2 that these artifacts now reflect:
 - **Locks are permanent and tagged** `{ topic, round, number }`; the final
   board is self-documenting and exports to PNG (01, 03, 07).
 - **The app never judges.** Disputes are settled out loud; no in-app voting in
-  v1 (01, 02).
+  v1 (01, 02). The M5.5 cheer mechanic is compatible *because* its tally is
+  hidden until results — a live count would be a verdict by another name
+  (01, 03, 04, 10).
 
 ## Conventions for new artifacts
 

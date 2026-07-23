@@ -111,6 +111,12 @@ Arguments happen **out loud**; the app is the stage, not the judge.
   voiced its verdict) or **withdraws**. There is no in-app voting in v1 — the
   social contract is the mechanism. (In-app majority voting is a possible future
   lobby option for remote play.)
+- **Cheers are not votes.** Players may applaud any name proposed in the current
+  round, withdrawn ones included, and the tally is *hidden until the results
+  reel* — it never gates a lock, never enters a score, and is never visible
+  while a decision is live. A visible live tally would be a verdict by another
+  name, which is why hiding it is a rule and not a presentation choice. Designed
+  in `10-highlight-reel.md`; not built yet.
 - PASS doubles as the ready signal. The round auto-advances when everyone has
   resolved (confirmed or passed).
 
