@@ -3,6 +3,13 @@
 Build order chosen so every milestone ends with something playable-ish, and the
 riskiest reused assumptions (protocol package, reconnect) are validated first.
 
+**Reordered after M2** (2026-07-23): the game became playable at the end of M2,
+so polish and deployment moved *ahead* of decks/admin — M5 (polish) and M6
+(ship) now precede M7 (decks & admin). The point is to get a real build in
+friends' hands and let playtest feedback accumulate while local work continues.
+Decks & admin was the safest thing to defer: the seeded `general` deck ships
+from JSON, so a public build needs no deck UI at all.
+
 ## Design runway (now, before/alongside M0)
 
 Design-phase artifacts, in their intended order:
@@ -64,7 +71,15 @@ heartbeat *tuning* behind the org proxy.
 **Exit test:** full 3-player game played at one table, phones only, start to
 results, with at least one heated argument. (Yes, this is a real test.)
 
-## M3 — Display & drama
+## M3 — Display & drama ✅ done
+
+The display is the one surface whose primary job is *being looked at*, so it
+ships styled: build it to the `07-design-system.md` baseline (tokens, type
+scale, die-cut ring, legible across a room) rather than deferring its look to
+M5. Legibility at 3 m is what the exit test measures. `06-key-screens.md` also
+puts the display outside the player-view breakpoints — it is a single
+landscape target, so there is no later responsive sweep to batch it into.
+What M5 *does* own for the display: cross-surface cohesion and motion timing.
 
 - Display "Stage" super-state per `05-ux-flow.md`: one persistent layout across
   the round loop — House board (per visibility mode), called numbers, current
@@ -81,6 +96,19 @@ results, with at least one heated argument. (Yes, this is a real test.)
 **Exit test:** the 5-friend group plays with a TV; the room groans at a House
 hit without anyone explaining the screen.
 
+Built with **no protocol change** — `PROTOCOL_VERSION` stays 2. Two decisions
+worth carrying forward:
+
+- **The round timer has no deadline on the wire.** The server owns the real
+  timer (its own slot in `Room`, not the shared `phaseTimer`) and auto-advances
+  identically to `forceAdvance`; each client counts down locally from the
+  moment it sees the floor open. A client that reconnects mid-round therefore
+  shows a generous countdown. Accepted for a *soft* timer — adding
+  `RoundState.endsAt` would cost a version bump.
+- **`hidden` House visibility no longer hides the called-number list.** The
+  phone's House chip opens in every mode now: the display shows called numbers
+  in all three, and no public fact may live only on the TV.
+
 ## M4 — Results, reveal & share
 
 - Host-paced synchronized results sequence (`results.advance` / `revealStage`):
@@ -92,22 +120,58 @@ hit without anyone explaining the screen.
 
 **Exit test:** a board screenshot gets posted to the group chat unprompted.
 
-## M5 — Decks & admin
+## M5 — Polish & responsive *(make it look finished)*
+
+Every screen exists and works by the end of M4. This milestone makes the set
+cohere and covers non-phone form factors, so the first public build isn't
+embarrassing.
+
+- Cross-surface cohesion audit against `07-design-system.md`: the House board,
+  cells, lock tags and status grids must read as the same objects on phone and
+  display. Retro-fit anything M1/M2 shipped rough.
+- Motion pass: draw-moment, lock, House-hit and results-reveal timings tuned
+  together rather than per-screen.
+- Responsive pass per `06-key-screens.md` (player view only — the display is
+  landscape-first and unrelated): landscape-phone two-pane layout;
+  tablet/desktop inlining (House board + queue beside a max-width board); cell
+  auto-shrink floor tuning on small phones.
+- PWA manifest + install prompt.
+
+**Exit test:** the game looks deliberate on a phone, a tablet and a laptop, and
+nothing on screen looks like a placeholder.
+
+## M6 — Ship it *(first public build; playtesting starts here)*
+
+Cutover per `08-deployment.md` — shared org VM behind Caddy, compose, the
+existing deploy workflow. Decks and admin are deliberately *not* here: the
+seeded `general` deck ships from JSON and is enough for real games.
+
+- Deployment cutover: vhost, TLS, WS proxying, SQLite volume + backup.
+- Minimum operability for an unattended public URL — without these a dropped
+  host or a stale lobby costs you a playtest session and the feedback you get
+  is about the crash, not the game:
+  - host drops → host migration to longest-connected player;
+  - proposer drops mid-proposal;
+  - room GC for abandoned lobbies;
+  - heartbeat tuning behind the org proxy.
+- Feedback path for playtesters (however lightweight — a group chat is fine).
+
+**Exit test:** friends play a full game on the public URL with nobody from the
+build team in the room, and the server is still healthy the next morning.
+
+## M7 — Decks & admin
 
 - Deck CRUD UI behind OIDC (org IdP); deck list endpoint for the lobby picker;
   multi-deck merge in lobby settings.
 - Deck-size warning vs expected draw count.
 - Game-log browser (admin).
 
-## M6 — Hardening & polish
+## M8 — Hardening from playtest
 
-- PWA manifest + install prompt; landscape display tweaks.
-- Responsive pass per `06-key-screens.md`: landscape-phone two-pane player
-  layout; tablet/desktop inlining (House board + queue beside a max-width
-  board); cell auto-shrink floor tuning on small phones.
-- Reconnect edge cases: proposer drops mid-proposal, host drops (host migration
-  to longest-connected player), display refresh storms.
-- Room GC for abandoned lobbies; heartbeat tuning behind org proxy.
+Driven by what M6 actually surfaced, not guessed in advance.
+
+- Remaining reconnect edge cases (display refresh storms, anything playtesting
+  found).
 - Playtest-driven pacing defaults: revisit `numberPoolSize` / `drawsPerRound`
   after ~5 real games.
 

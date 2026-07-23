@@ -47,6 +47,25 @@
   --text-number: 48px;
   --text-hero: 64px;
 
+  /* Display-view ramp (docs/07 type-ramp table, display column). The display is
+     a single landscape target read from across a room, not a breakpoint of the
+     player view.
+
+     Each token is clamp(floor, vw-at-1920, spec): on the 1920px-wide design
+     target every value resolves to exactly the ramp's number, and a smaller
+     screen (a laptop standing in for the TV) scales the whole ramp down in
+     proportion instead of overflowing. The max never exceeds the spec, and the
+     floors stay well above the system's 12px floor. */
+  --text-d-caption: clamp(14px, 1.04vw, 20px);
+  --text-d-body-sm: clamp(16px, 1.25vw, 24px);
+  --text-d-body: clamp(18px, 1.46vw, 28px);
+  --text-d-cell: clamp(16px, 1.25vw, 24px);
+  --text-d-heading: clamp(20px, 1.67vw, 32px);
+  --text-d-topic: clamp(40px, 3.75vw, 72px);
+  --text-d-verdict: clamp(48px, 4.58vw, 88px);
+  --text-d-number: clamp(80px, 8.33vw, 160px);
+  --text-d-hero: clamp(96px, 10.42vw, 200px);
+
   /* Spacing (base unit 6px) */
   --spacing-unit: 6px;
 
@@ -85,6 +104,66 @@ body {
 /* Anything that counts holds its width as values change (docs/07). */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Motion (docs/07). Every keyframe set below ends on the resting state — no
+   transform, full opacity — so the reduced-motion collapse below lands on an
+   identical final state. Motion never carries meaning alone.
+
+   Only transform and opacity are animated. Background-color transitions are
+   the exception the named moments explicitly ask for ("cell fills Electric
+   Violet, 250 ms", "House hit — coral fill, 250 ms"); they repaint without
+   reflowing the board grid, which is what the rule protects. */
+@keyframes yawbg-slam {
+  from {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes yawbg-pop {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes yawbg-rise {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* The showpiece: the drawn number landing. One per screen. */
+.anim-slam {
+  animation: yawbg-slam var(--duration-showpiece) var(--ease-enter) both;
+}
+
+.anim-pop {
+  animation: yawbg-pop var(--duration-state) var(--ease-enter) both;
+}
+
+.anim-rise {
+  animation: yawbg-rise var(--duration-state) var(--ease-enter) both;
+}
+
+/* Cell lock and House hit: the fill changes, the layout doesn't. */
+.fill-transition {
+  transition: background-color var(--duration-state) var(--ease-enter),
+    color var(--duration-state) var(--ease-enter);
 }
 
 @media (prefers-reduced-motion: reduce) {

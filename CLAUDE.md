@@ -2,14 +2,22 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: implementation started — M0, M1 and M2 shipped
+## Project status: implementation started — M0 through M3 shipped
 
 The design phase is complete (`docs/` holds the artifacts). **M0 — skeleton**,
-**M1 — lobby & board fill**, and **M2 — core round loop** are built; the game is
-playable start to results. The repo is a Bun workspaces monorepo alongside the
-design docs. Next up is **M3 — Display & drama** (see `docs/04-roadmap.md`).
-Build milestone by milestone; don't design or build against the roadmap's
-deferred lists without flagging it.
+**M1 — lobby & board fill**, **M2 — core round loop** and **M3 — display &
+drama** are built; the game is playable start to results on phones, with a
+styled read-only display. The repo is a Bun workspaces monorepo alongside the
+design docs. Next up is **M4 — Results, reveal & share** (see
+`docs/04-roadmap.md`). Build milestone by milestone; don't design or build
+against the roadmap's deferred lists without flagging it.
+
+The post-M2 order is **M3 display → M4 results → M5 polish & responsive → M6
+deploy & playtest → M7 decks & admin → M8 hardening**: polish and deployment
+were moved ahead of decks/admin so friends can playtest a real build while
+local work continues. The display ships *styled* in M3 (legibility across a
+room is what its exit test measures); M5 owns cross-surface cohesion, motion
+timing and the player-view responsive pass.
 
 M1 notes that still hold: pool distribution uses a round-robin *offset* — each
 player's whole K-name block rotates to exactly one other player, not a full
@@ -39,6 +47,53 @@ M2 notes for future sessions:
 - SQLite (`bun:sqlite`) holds decks only; live game state stays memory-only and
   a restart dropping in-progress games is accepted. Tests inject a fake
   `TopicSource` (`apps/server/test/TestClient.ts`) so they never open a DB.
+
+M3 notes for future sessions:
+
+- **M3 changed no wire types.** `PROTOCOL_VERSION` is still **2**. The Stage,
+  the House-hit flash and the draw moment are all derived from consecutive
+  `room.state` snapshots, per `docs/03` — there is deliberately no event channel.
+- **`roundTimerSec` has its own timer slot** (`roundTimer`), *not* the shared
+  `phaseTimer`: it runs during the open floor while `phaseTimer` is idle, and
+  sharing would let one cancel the other. It fires `advanceRound()` — literally
+  the force-advance path — and also arms during `last_call`. Scale it in tests
+  with `createApp({ roundTimerMsPerSec: 1 })` so a "60 s" timer takes 60 ms.
+- **No countdown deadline is on the wire.** Clients count down locally from
+  when they see the floor open (`lib/countdown.svelte.ts` explains the
+  trade-off). A mid-round reconnect shows a generous countdown; the server is
+  the only thing that actually ends a round.
+- **Anything derived from a snapshot must be keyed, not re-run.** Every
+  `room.state` frame replaces the whole object, so *any* `$effect` reading
+  `roomState` re-runs on every broadcast — a propose, a pass, a reconnect. The
+  countdown arms on a round key for this reason (re-arming per frame pushed the
+  deadline forward all round and it never reached zero), and `RoundScreen`
+  closes its action sheets on a round-number change for the mirror-image reason:
+  a sheet opened in round N would otherwise confirm against round N+1.
+- **The display type ramp lives in `app.css` as `--text-d-*`**, each a
+  `clamp(floor, vw-at-1920, spec)`. On the 1920px design target every token
+  resolves to exactly `docs/07`'s display column; a smaller screen scales the
+  whole ramp down rather than overflowing. The display never scrolls — layouts
+  are `h-dvh` + `overflow-hidden`, and the called-number row is height-capped so
+  a long game clips its oldest numbers instead of squeezing the stage.
+- **`hidden` House visibility no longer gates the House sheet shut.** The chip
+  opens in all three modes because the sheet also carries the called-number
+  history, which is public regardless — the display shows it in every mode, and
+  no public fact may live only on the TV (`docs/05`).
+- QR is `qrcode-generator` (~15 KB gzipped, zero deps), rendered as inline SVG
+  by `lib/display/QrCode.svelte`; ink-on-white, with the spec's quiet zone.
+- **`Starburst` is a square SVG at a caller-given `size`, with its label drawn
+  as SVG text.** Both parts are load-bearing: an earlier version sized itself to
+  its HTML text box, so a 1-digit draw made a tiny sticker and a 2-digit one
+  overflowed the star's points. SVG text scales with the viewBox, so the label
+  always lands inside the inner radius — including 3-digit numbers at
+  `numberPoolSize: 100`. Sizes constrain **both** axes (`min(30vh, 22vw)` on the
+  display): a vh-only rule collapses on a landscape tablet, a vw-only rule on a
+  portrait phone.
+- Motion helpers are global classes in `app.css` (`.anim-slam`, `.anim-pop`,
+  `.anim-rise`, `.fill-transition`). Every keyframe set **ends on the resting
+  state**, so the `prefers-reduced-motion` collapse lands on an identical final
+  state. Colour fills transition (the named moments ask for it); nothing that
+  reflows the board grid is ever animated.
 
 The stack is Bun workspaces + Elysia server + Svelte 5 (runes) + Tailwind v4
 client + a shared `packages/protocol` zod package (see `docs/02-architecture.md`).
@@ -99,7 +154,7 @@ These recur across all docs and should shape any new design work:
 | `docs/01-game-design.md` | Rules, phase machine, lobby options, lock semantics, edge cases |
 | `docs/02-architecture.md` | Stack, server model, monorepo layout, deployment |
 | `docs/03-protocol.md` | Every intent/broadcast message and state shape (blueprint for the zod package) |
-| `docs/04-roadmap.md` | Milestones M0–M6, each ending playable-ish |
+| `docs/04-roadmap.md` | Milestones M0–M8, each ending playable-ish |
 | `docs/05-ux-flow.md` | Routes, screen inventory (player + display), locked flow decisions |
 | `docs/06-key-screens.md` | The two hard screens: board editor & open floor interaction design |
 | `docs/07-design-system.md` | Visual language: colors, three-voice typography (EN+TH), shape, components |

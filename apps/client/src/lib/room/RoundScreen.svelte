@@ -1,6 +1,8 @@
 <script lang="ts">
-  import type { PublicRoomState } from "@yawbg/protocol";
+  import type { HousePublic, PublicRoomState } from "@yawbg/protocol";
   import { socket } from "../socket.svelte";
+  import { createCountdown } from "../countdown.svelte";
+  import Starburst from "../Starburst.svelte";
   import HouseBoard from "./HouseBoard.svelte";
   import Sheet from "./Sheet.svelte";
   import StatusGrid from "./StatusGrid.svelte";
@@ -24,17 +26,98 @@
   const queue = $derived(round?.queue ?? []);
   const onStage = $derived(queue[0]);
   const myProposal = $derived(queue.find((q) => q.playerId === me?.id));
+  const myQueueIndex = $derived(queue.findIndex((q) => q.playerId === me?.id));
   const iAmOnStage = $derived(onStage !== undefined && onStage.playerId === me?.id);
   const stagePlayer = $derived(roomState.players.find((p) => p.id === onStage?.playerId));
 
   const resolvedCount = $derived(roomState.players.filter((p) => p.resolved).length);
   const totalCount = $derived(roomState.players.length);
+  // Split by connection: a disconnected player is unresolved too (they block
+  // auto-advance by design, docs/01), but "still deciding" is the wrong story to
+  // tell the host about them — being gone is usually the whole reason the round
+  // is stuck and force-advance is on screen at all.
+  const unresolved = $derived(roomState.players.filter((p) => !p.resolved && p.connected));
+  const awayUnresolved = $derived(roomState.players.filter((p) => !p.resolved && !p.connected));
   const stalled = $derived(floorOpen && resolvedCount < totalCount);
+
+  // The soft round timer's countdown. Server-owned, client-rendered — see
+  // countdown.svelte.ts for why there is no deadline on the wire, and why
+  // arming is keyed on the round rather than re-run per snapshot.
+  const clock = createCountdown(() => ({
+    key: floorOpen && round ? `r${round.number}` : null,
+    seconds: roomState.settings.roundTimerSec,
+  }));
+
+  /**
+   * New-House-hit flash, from a client-side snapshot diff — docs/03 is explicit
+   * that there are no event messages and everything renderable is derived from
+   * consecutive `room.state` frames. Deliberately not a new message type.
+   *
+   * The phone keeps the House behind a chip (docs/06: detail on demand, not
+   * permanent real estate), so the chip itself is what flashes. Each visibility
+   * mode gets the strongest signal it honestly has: hit indices in `full`, the
+   * dread counters in `progress`, and nothing at all in `hidden` — where not
+   * knowing is the whole point.
+   */
+  const houseSignature = (h: HousePublic | null): string | null => {
+    if (!h) return null;
+    if (h.mode === "full") return `f:${h.hits.length}:${h.linesCompleted}`;
+    if (h.mode === "progress") return `p:${h.bestLineNeeds}:${h.linesCompleted}`;
+    return null; // hidden: no signal, by design
+  };
+
+  // Plain `let`, not $state: this is the effect's own memory of the last frame,
+  // and making it reactive would re-trigger the effect that writes it.
+  let lastHouseSignature: string | null = null;
+  let houseFlash = $state(false);
+  let flashTimer: ReturnType<typeof setTimeout> | null = null;
+
+  $effect(() => {
+    const sig = houseSignature(house);
+    if (sig !== null && lastHouseSignature !== null && sig !== lastHouseSignature) {
+      houseFlash = true;
+      if (flashTimer) clearTimeout(flashTimer);
+      flashTimer = setTimeout(() => (houseFlash = false), 900);
+    }
+    lastHouseSignature = sig;
+  });
+
+  // Teardown only. This must NOT live in the effect above: that one re-runs on
+  // every snapshot (a fresh `house` object each time), so its cleanup would
+  // cancel the pending flash and strand the chip lit.
+  $effect(() => () => {
+    if (flashTimer) clearTimeout(flashTimer);
+  });
 
   let cellSheet = $state<number | null>(null);
   let houseSheet = $state(false);
   let queueSheet = $state(false);
   let passSheet = $state(false);
+  let advanceSheet = $state(false);
+
+  /**
+   * Close the action sheets when the round turns over.
+   *
+   * Each of these asks a question that is only meaningful for the round it was
+   * opened in, and a round can end underneath an open sheet at any moment — the
+   * last player resolves, or the roundTimerSec timer fires. The draw takeover
+   * (z-30) then covers the sheet (z-10) for `drawMs` and dismisses, revealing a
+   * sheet that now describes the previous round. Confirming it would spend the
+   * *new* round: force-advance would skip a round nobody got to play, pass would
+   * silently burn the player's turn, and propose would act on a stale topic.
+   *
+   * The House and queue sheets are read-only, so they stay put.
+   */
+  let lastRoundNumber: number | null = null;
+  $effect(() => {
+    const n = round?.number ?? null;
+    if (lastRoundNumber !== null && n !== lastRoundNumber) {
+      advanceSheet = false;
+      passSheet = false;
+      cellSheet = null;
+    }
+    lastRoundNumber = n;
+  });
 
   // The takeover is not dismissable: when your proposal reaches the front, the
   // table is arguing about it right now and the only ways out are the two
@@ -55,6 +138,11 @@
   function pass() {
     socket.pass();
     passSheet = false;
+  }
+
+  function forceAdvance() {
+    socket.forceAdvance();
+    advanceSheet = false;
   }
 
   // docs/06/07: 14px cell names auto-shrink to a 12px floor, then truncate —
@@ -87,8 +175,11 @@
         <!-- House chip: a compact dread indicator; detail on demand, not permanent real estate. -->
         {#if house}
           <button
-            class="ml-auto rounded-[var(--radius-tag)] border border-near-black bg-paper-white px-2 py-0.5 font-ui text-caption font-semibold text-coral-blaze"
-            disabled={house.mode === "hidden"}
+            class="fill-transition ml-auto rounded-[var(--radius-tag)] border border-near-black px-2 py-0.5 font-ui text-caption font-semibold"
+            class:bg-coral-blaze={houseFlash}
+            class:text-ink-black={houseFlash}
+            class:bg-paper-white={!houseFlash}
+            class:text-coral-blaze={!houseFlash}
             onclick={() => (houseSheet = true)}
           >
             {#if house.mode === "hidden"}
@@ -110,13 +201,9 @@
         </span>
       {/if}
 
-      {#if isDrawing}
-        <p class="font-ui text-body text-slate-gray">Drawing…</p>
-      {:else}
-        <h1 class="font-game text-topic font-semibold leading-[1.15]">
-          “{round.topic?.text ?? "—"}”
-        </h1>
-      {/if}
+      <h1 class="font-game text-topic font-semibold leading-[1.15]">
+        “{round.topic?.text ?? "—"}”
+      </h1>
     </div>
 
     <!-- 2. Stage strip: one-line ticker, tap for the full queue. -->
@@ -130,7 +217,15 @@
           <span class="font-semibold">On stage:</span>
           {stagePlayer?.name ?? "?"} — {onStage.name}
         </span>
-        {#if queue.length > 1}
+        <!-- Queue awareness: your own place in the FIFO, not just its depth.
+             "+2 waiting" doesn't tell you whether you're about to be up. -->
+        {#if myQueueIndex > 0}
+          <span
+            class="tabular ml-auto shrink-0 rounded-[var(--radius-tag)] bg-sunburst-yellow px-2 py-0.5 text-caption font-semibold text-ink-black"
+          >
+            you're #{myQueueIndex + 1}
+          </span>
+        {:else if queue.length > 1}
           <span
             class="ml-auto shrink-0 rounded-[var(--radius-tag)] bg-aqua-pop px-2 py-0.5 text-caption font-semibold text-ink-black"
           >
@@ -149,7 +244,7 @@
         <div
           role="button"
           tabindex="0"
-          class="relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-[var(--radius-tag)] border border-near-black p-1 text-center font-ui leading-tight {cellSize(
+          class="fill-transition relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-[var(--radius-tag)] border border-near-black p-1 text-center font-ui leading-tight {cellSize(
             cell.name,
           )}"
           class:bg-electric-violet={cell.locked !== null}
@@ -196,6 +291,16 @@
       >
         {me.resolved ? "Resolved" : "Pass"}
       </button>
+      {#if clock.secondsLeft !== null}
+        <span
+          class="tabular fill-transition shrink-0 rounded-[var(--radius-tag)] border border-near-black px-2 py-1 font-ui text-body-sm font-semibold"
+          class:bg-coral-blaze={clock.secondsLeft <= 10}
+          class:text-ink-black={clock.secondsLeft <= 10}
+          class:bg-paper-white={clock.secondsLeft > 10}
+        >
+          {clock.secondsLeft}s
+        </span>
+      {/if}
       <span class="tabular shrink-0 font-ui text-body-sm font-semibold text-slate-gray">
         {resolvedCount}/{totalCount} resolved
       </span>
@@ -204,13 +309,46 @@
       <div class="mx-auto mt-2 flex max-w-md">
         <button
           class="flex-1 rounded-[var(--radius-button)] border-2 border-coral-blaze px-4 py-2 font-ui text-body-sm font-semibold text-coral-blaze"
-          onclick={() => socket.forceAdvance()}
+          onclick={() => (advanceSheet = true)}
         >
           Force advance ({resolvedCount}/{totalCount} resolved)
         </button>
       </div>
     {/if}
   </div>
+
+  <!-- Draw moment: a takeover, not a screen (docs/05 decision #1). The server
+       owns this window (`drawMs`), so the gasp lands on every phone and the TV
+       at the same instant. One moving thing: the whole card animates as a
+       single block, and it dismisses itself when the floor opens. -->
+  {#if isDrawing}
+    <div class="fixed inset-0 z-30 flex flex-col items-center justify-center gap-6 bg-cream-blush px-6">
+      {#key round.drawnNumbers.join("-")}
+        <div class="anim-slam flex flex-col items-center gap-6">
+          <span class="tabular font-ui text-body font-semibold uppercase tracking-[0.03em] text-slate-gray">
+            Round {round.number}
+          </span>
+          <div class="flex flex-wrap items-center justify-center gap-4">
+            {#each round.drawnNumbers as n (n)}
+              <!-- Both axes are constrained so the sticker survives a landscape
+                   tablet (where vh alone goes tiny) and a portrait phone (where
+                   vw does), with a floor and a ceiling either side. Two fit per
+                   row on a phone; three wrap. -->
+              <Starburst
+                label={String(n)}
+                size="clamp(120px, min(40vw, 34vh), 260px)"
+                fill="coral"
+                rotate={-6}
+              />
+            {/each}
+          </div>
+          <p class="max-w-md text-center font-game text-topic font-semibold leading-[1.15] text-ink-black">
+            “{round.topic?.text ?? "—"}”
+          </p>
+        </div>
+      {/key}
+    </div>
+  {/if}
 
   <!-- On-stage takeover: the name huge, confirm styled as the irreversible act it is. -->
   {#if showTakeover && myProposal}
@@ -272,18 +410,36 @@
     </Sheet>
   {/if}
 
-  {#if houseSheet && house && house.mode !== "hidden"}
+  <!-- Open in every visibility mode, `hidden` included: the sheet also carries
+       the called-number history, which is public whatever the House is doing.
+       The display shows it in all three modes, and no public fact may live only
+       on the TV (docs/05's display-optional principle). -->
+  {#if houseSheet && house}
     <Sheet title="The House" onClose={() => (houseSheet = false)}>
       {#if house.mode === "full"}
         <HouseBoard {house} />
+        <p class="mt-3 font-ui text-body-sm text-slate-gray">
+          {#if house.linesCompleted > 0}
+            The House has bingo.
+          {:else}
+            {house.bestLineNeeds} more to a line.
+          {/if}
+        </p>
+      {:else if house.mode === "progress"}
+        <!-- No board this game, so the counter is the object. -->
+        <div class="flex items-baseline gap-2">
+          <span class="tabular font-shout text-number font-extrabold leading-none text-ink-black">
+            {house.linesCompleted > 0 ? "!" : house.bestLineNeeds}
+          </span>
+          <span class="font-ui text-heading font-bold">
+            {house.linesCompleted > 0 ? "The House has bingo." : "away from a line"}
+          </span>
+        </div>
+      {:else}
+        <p class="font-ui text-body">
+          The House keeps its board this game — you'll see it at the end.
+        </p>
       {/if}
-      <p class="mt-3 font-ui text-body-sm text-slate-gray">
-        {#if house.linesCompleted > 0}
-          The House has bingo.
-        {:else}
-          {house.bestLineNeeds} more to a line.
-        {/if}
-      </p>
       {#if round.allDrawn.length > 0}
         <p class="mt-3 mb-1 font-ui text-body-sm font-semibold text-slate-gray">Called so far</p>
         <p class="tabular font-ui text-body-sm">{round.allDrawn.join(" · ")}</p>
@@ -314,6 +470,48 @@
           {/each}
         </ol>
       {/if}
+    </Sheet>
+  {/if}
+
+  <!-- Force advance costs a confirm tap, for the same reason pass does: it is
+       final and it spends *other people's* rounds. It sits one tap from the
+       Pass button, and a mis-tap silently auto-passes everyone still thinking. -->
+  {#if advanceSheet}
+    <Sheet title="Force advance" onClose={() => (advanceSheet = false)}>
+      {#if isLastCall}
+        <p class="mb-2 font-ui text-body">
+          End last call and go to results? Anyone who hasn't locked loses the chance.
+        </p>
+      {:else}
+        <p class="mb-2 font-ui text-body">
+          Skip to the next draw? Everyone who hasn't resolved is passed, and any proposal still on
+          the floor is withdrawn.
+        </p>
+      {/if}
+      {#if unresolved.length > 0}
+        <p class="mb-1 font-ui text-body-sm text-slate-gray">
+          Still deciding: {unresolved.map((p) => p.name).join(", ")}
+        </p>
+      {/if}
+      {#if awayUnresolved.length > 0}
+        <p class="mb-3 font-ui text-body-sm font-semibold text-coral-blaze">
+          Disconnected: {awayUnresolved.map((p) => p.name).join(", ")}
+        </p>
+      {/if}
+      <div class="flex gap-2">
+        <button
+          class="flex-1 rounded-[var(--radius-button)] bg-ink-black px-4 py-3 font-ui text-body font-bold text-paper-white"
+          onclick={forceAdvance}
+        >
+          {isLastCall ? "End the game" : "Force advance"}
+        </button>
+        <button
+          class="flex-1 rounded-[var(--radius-button)] border-2 border-ink-black bg-paper-white px-4 py-3 font-ui text-body font-semibold"
+          onclick={() => (advanceSheet = false)}
+        >
+          Cancel
+        </button>
+      </div>
     </Sheet>
   {/if}
 

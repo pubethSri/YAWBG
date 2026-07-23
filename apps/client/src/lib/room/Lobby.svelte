@@ -1,6 +1,7 @@
 <script lang="ts">
   import { DeckListSchema, type DeckSummary, type PublicRoomState, type Settings } from "@yawbg/protocol";
   import { socket } from "../socket.svelte";
+  import QrCode from "../QrCode.svelte";
 
   let { roomState }: { roomState: PublicRoomState } = $props();
 
@@ -33,12 +34,39 @@
   const connectedCount = $derived(roomState.players.filter((p) => p.connected).length);
   const canStart = $derived(isHost && connectedCount >= 2);
 
+  // The zero-display join path (docs/05): with no TV in the room, the phone
+  // lobby has to do the display splash's whole job — hand someone else a link,
+  // or let them point a camera at this screen.
+  const joinUrl = $derived(`${location.origin}/?code=${roomState.code}`);
   let copied = $state(false);
-  function copyLink() {
-    const url = `${location.origin}/?code=${roomState.code}`;
-    navigator.clipboard?.writeText(url);
-    copied = true;
-    setTimeout(() => (copied = false), 1500);
+  let showQr = $state(false);
+  /** Set when neither share nor clipboard is available — show the raw URL instead. */
+  let manualCopy = $state(false);
+
+  async function shareLink() {
+    // Native share where it exists (that's the one that reaches the group chat
+    // in one tap); clipboard everywhere else.
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "YAWBG", text: `Join room ${roomState.code}`, url: joinUrl });
+        return;
+      } catch (err) {
+        // Dismissing the sheet is a decision, not a failure — don't silently
+        // reinterpret it as "copy instead".
+        if ((err as DOMException)?.name === "AbortError") return;
+        /* the browser refused the share — fall through to the clipboard */
+      }
+    }
+    // Both APIs need a secure context. Over plain HTTP — which is exactly how
+    // this is played on a LAN before deployment — `navigator.clipboard` is
+    // undefined, so this must never claim success it didn't get.
+    try {
+      await navigator.clipboard.writeText(joinUrl);
+      copied = true;
+      setTimeout(() => (copied = false), 1500);
+    } catch {
+      manualCopy = true; // reveal the URL so it can be read out or long-pressed
+    }
   }
 
   function update(patch: Partial<Settings>) {
@@ -62,12 +90,42 @@
   <div class="rotate-[-2deg] self-start rounded-[var(--radius-tag)] bg-sunburst-yellow px-4 py-2 font-shout text-[28px]">
     {roomState.code}
   </div>
-  <button
-    class="self-start rounded-[var(--radius-button)] border-2 border-ink-black bg-paper-white px-3 py-1.5 font-ui text-body-sm font-semibold"
-    onclick={copyLink}
-  >
-    {copied ? "Copied!" : "Copy join link"}
-  </button>
+  <div class="flex flex-wrap items-center gap-2">
+    <button
+      class="rounded-[var(--radius-button)] border-2 border-ink-black bg-paper-white px-3 py-1.5 font-ui text-body-sm font-semibold"
+      onclick={shareLink}
+    >
+      {copied ? "Copied!" : "Share join link"}
+    </button>
+    <button
+      class="rounded-[var(--radius-button)] border-2 border-ink-black bg-paper-white px-3 py-1.5 font-ui text-body-sm font-semibold"
+      aria-expanded={showQr}
+      onclick={() => (showQr = !showQr)}
+    >
+      {showQr ? "Hide QR" : "Show QR"}
+    </button>
+    <a
+      class="rounded-[var(--radius-button)] border-2 border-ink-black bg-paper-white px-3 py-1.5 font-ui text-body-sm font-semibold"
+      href="/display/{roomState.code}"
+      target="_blank"
+      rel="noopener"
+    >
+      Open display ↗
+    </a>
+  </div>
+  {#if manualCopy}
+    <div class="self-start rounded-[var(--radius-tag)] border-2 border-ink-black bg-paper-white p-2">
+      <p class="mb-1 font-ui text-caption font-semibold text-slate-gray">
+        Copying needs HTTPS — here's the link:
+      </p>
+      <p class="font-ui text-body-sm break-all select-all">{joinUrl}</p>
+    </div>
+  {/if}
+  {#if showQr}
+    <div class="anim-pop self-start rounded-[var(--radius-card)] border-2 border-ink-black bg-paper-white p-2">
+      <QrCode url={joinUrl} size={200} />
+    </div>
+  {/if}
 
   <section class="rounded-[var(--radius-card)] border border-near-black bg-paper-white p-4">
     <h2 class="mb-3 font-ui text-heading font-bold">

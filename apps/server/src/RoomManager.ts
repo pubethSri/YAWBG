@@ -8,6 +8,7 @@ export interface RoomOptions {
   decks: TopicSource;
   distributeMs?: number;
   drawMs?: number;
+  roundTimerMsPerSec?: number;
 }
 
 export class RoomManager {

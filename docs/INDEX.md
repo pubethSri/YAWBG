@@ -23,7 +23,7 @@ accounts, join by 4-letter room code.
 | 01 | [`01-game-design.md`](01-game-design.md) | Rules, one-entity rule, roles, phase machine, lock semantics, pool/sabotage mechanic, **lobby settings table**, win conditions, edge-case rulings, share feature | You need to know how the game is *played*, or whether a rule exists |
 | 02 | [`02-architecture.md`](02-architecture.md) | Stack, monorepo layout, `RoomManager`/`Room` server model, public/private state split, display role, reconnection design, REST surface, deployment, **v1 non-goals** | You need to know how the system is *built*, or whether something is in scope |
 | 03 | [`03-protocol.md`](03-protocol.md) | Every client intent & server message, full state shapes (`PublicRoomState`, `PrivateBoard`, `ResultsPayload`), server-side invariants | You're touching anything that crosses the wire — this is the blueprint for `packages/protocol` |
-| 04 | [`04-roadmap.md`](04-roadmap.md) | Design-runway status, milestones **M0–M6** with exit tests, deliberately-deferred list | You're deciding what to build next (or resisting building something too early) |
+| 04 | [`04-roadmap.md`](04-roadmap.md) | Design-runway status, milestones **M0–M8** with exit tests, deliberately-deferred list | You're deciding what to build next (or resisting building something too early) |
 | 05 | [`05-ux-flow.md`](05-ux-flow.md) | Routes, phase-renderer model, player & display screen inventories, display-optional principle, locked flow decisions | You need to know what screen exists when, or how devices move through the game |
 | 06 | [`06-key-screens.md`](06-key-screens.md) | Interaction design for the two hard screens: board editor (dump/arrange modes, swap gestures, ready semantics) and open floor (layout stack, takeover, pass confirm); responsive/landscape rules | You're building or changing the board-fill or round-loop UI |
 | 07 | [`07-design-system.md`](07-design-system.md) | Visual language: sticker-bombed-tabletop theme, color tokens + measured contrast table + game-state mapping, three-voice typography (Fraunces / Inter+Kanit / Baloo 2, Thai included), shape & the die-cut ring, motion, component recipes, Tailwind `@theme` quick start | You're styling anything. Light-only for v1 |
@@ -40,7 +40,13 @@ Design is complete and the game is **playable end to end**. **M0 (skeleton), M1
 (lobby & board fill) and M2 (core round loop) are shipped** — the repo is a Bun
 workspaces monorepo (`apps/server`, `apps/client`, `packages/protocol`) beside
 these docs. See `04-roadmap.md` for milestone status and `../CLAUDE.md` for the
-command list and implementation notes. Next milestone: **M3 — Display & drama**.
+command list and implementation notes. Next milestone: **M4 — Results, reveal
+& share**.
+
+The post-M2 roadmap was **reordered** (2026-07-23) to ship a public build
+early: M3 display → M4 results → M5 polish & responsive → M6 deploy & playtest
+→ M7 decks & admin → M8 hardening. The display ships styled in M3 rather than
+waiting for M5 — see the note at the top of that milestone.
 
 Two rulings settled during M2 that these artifacts now reflect:
 

@@ -26,6 +26,8 @@ export interface AppOptions {
   distributeMs?: number;
   /** Draw-moment window before the floor opens. */
   drawMs?: number;
+  /** Test override: how long a `roundTimerSec` second lasts (default 1000ms). */
+  roundTimerMsPerSec?: number;
   /** Ping interval; two missed pongs closes the socket. 0 disables (tests). */
   heartbeatMs?: number;
 }
@@ -78,6 +80,7 @@ export function createApp(opts: AppOptions = {}) {
     decks,
     distributeMs: opts.distributeMs,
     drawMs: opts.drawMs,
+    roundTimerMsPerSec: opts.roundTimerMsPerSec,
   });
   const sockets = new Map<string, SocketSession>();
 

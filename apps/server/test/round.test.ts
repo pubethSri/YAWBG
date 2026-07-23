@@ -14,6 +14,9 @@ const app = createApp({
   distributeMs: 1,
   drawMs: 1,
   heartbeatMs: 0,
+  // Scales roundTimerSec so the M3 timer test doesn't sleep for half a minute.
+  // Inert for every other test here: roundTimerSec defaults to null.
+  roundTimerMsPerSec: 1,
 });
 app.listen({ port: 0, hostname: "127.0.0.1" });
 const port = app.server!.port!;
@@ -457,5 +460,75 @@ describe("M2 round loop", () => {
 
     host.close();
     p2.close();
+  }, 30_000);
+});
+
+describe("M3 roundTimerSec", () => {
+  // roundTimerMsPerSec: 1 on the app above turns "60 seconds" into 60ms.
+  const TIMER_SEC = 60;
+
+  test("the soft timer auto-advances the round exactly like force-advance", async () => {
+    const g = await startGame({ roundTimerSec: TIMER_SEC });
+    expect(g.state.settings.roundTimerSec).toBe(TIMER_SEC);
+    expect(g.state.round!.number).toBe(1);
+
+    // Nobody resolves and a proposal is left dangling on the floor. Under the
+    // resolve-based rule alone this round would never end.
+    g.host.send({ type: "round.propose", payload: { cellIndex: 7 } });
+    await drainUntil(g.all, (s) => s.round!.queue.length === 1);
+
+    // No pass, no confirm, no forceAdvance — only the clock.
+    const s = await drainUntil(g.all, (x) => x.round!.number === 2);
+    expect(s.phase === "draw" || s.phase === "open_floor").toBe(true);
+    expect(s.round!.queue).toEqual([]); // the dangling proposal was auto-withdrawn
+    for (const p of s.players) expect(p.resolved).toBe(false); // unresolved players auto-passed
+    // Auto-pass, not auto-lock: the un-confirmed cell is still open.
+    expect(s.players[0]!.board[7]!.status).toBe("filled");
+
+    for (const c of g.all) c.close();
+  }, 15_000);
+
+  test("the timer plays the game to results without skipping or outliving a round", async () => {
+    // Nobody touches a control for the whole game: the clock drives it.
+    const g = await startGame({ roundTimerSec: TIMER_SEC, drawsPerRound: 3 });
+    const s = await drainUntil(g.all, (x) => x.phase === "results");
+
+    // Contiguous 1..n proves no round was double-advanced by a stale timer from
+    // the round before it (each round re-arms its own, so a leaked one skips).
+    const rounds = s.results!.roundHistory.map((r) => r.round);
+    expect(rounds.length).toBeGreaterThan(1);
+    expect(rounds).toEqual(rounds.map((_, i) => i + 1));
+
+    // endGame clears the timer: results is a terminal state, not one more tick.
+    await new Promise((r) => setTimeout(r, TIMER_SEC * 4));
+    g.host.send({ type: "state.request", payload: {} });
+    const after = await g.host.expectState();
+    expect(after.phase).toBe("results");
+    expect(after.results!.roundHistory).toHaveLength(rounds.length);
+
+    for (const c of g.all) c.close();
+  }, 30_000);
+
+  test("the timer ends the game from last_call, not just between rounds", async () => {
+    // last_call is the one phase with no next round to advance into, so the
+    // timer takes a different branch (flushRoundHistory + endGame) than the
+    // open_floor path. Without lastCall on, that branch never runs.
+    const g = await startGame({ roundTimerSec: TIMER_SEC, drawsPerRound: 3, lastCall: true });
+
+    const lc = await drainUntil(g.all, (x) => x.phase === "last_call" || x.phase === "results");
+    expect(lc.phase).toBe("last_call"); // the clock alone got us here
+
+    // Nobody locks and nobody force-advances: the timer has to end the game.
+    const s = await drainUntil(g.all, (x) => x.phase === "results");
+    expect(s.results).not.toBeNull();
+
+    // last_call's round is recorded exactly once — the timer's branch flushes
+    // history itself, so a double-flush would show up as a duplicate entry.
+    const rounds = s.results!.roundHistory.map((r) => r.round);
+    expect(new Set(rounds).size).toBe(rounds.length);
+    expect(rounds).toEqual(rounds.map((_, i) => i + 1));
+    expect(rounds.at(-1)).toBe(lc.round!.number);
+
+    for (const c of g.all) c.close();
   }, 30_000);
 });

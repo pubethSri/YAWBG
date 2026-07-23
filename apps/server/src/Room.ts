@@ -103,9 +103,16 @@ export class Room {
   private lastCallDone = false;
   /** distribute->draw and draw->open_floor never overlap, so one slot is enough. */
   private phaseTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * roundTimerSec gets its own slot: it runs *during* the open floor, and the
+   * draw->open_floor phase timer is still nominally the last thing to have used
+   * `phaseTimer`. Sharing the slot would let one cancel the other.
+   */
+  private roundTimer: ReturnType<typeof setTimeout> | null = null;
   private decks: TopicSource;
   private distributeMs: number;
   private drawMs: number;
+  private roundTimerMsPerSec: number;
 
   constructor(
     code: string,
@@ -115,6 +122,7 @@ export class Room {
       decks: TopicSource;
       distributeMs?: number;
       drawMs?: number;
+      roundTimerMsPerSec?: number;
     },
   ) {
     this.code = code;
@@ -123,6 +131,9 @@ export class Room {
     this.decks = opts.decks;
     this.distributeMs = opts.distributeMs ?? 4_000; // docs/05: "~4 s, auto-advances"
     this.drawMs = opts.drawMs ?? 2_500; // the draw-moment takeover
+    // The setting is in seconds and the lobby's smallest option is 30, so tests
+    // scale a "second" down rather than sleeping for half a minute.
+    this.roundTimerMsPerSec = opts.roundTimerMsPerSec ?? 1_000;
   }
 
   addPlayer(name: string, ws: Socket): Player {
@@ -203,7 +214,9 @@ export class Room {
     // A pending proposal is auto-withdrawn on grace expiry (docs/01).
     this.queue = this.queue.filter((q) => q.playerId !== playerId);
     if (this.players.length === 0) {
-      this.clearPhaseTimer(); // don't let a pending timer outlive the room and notify a ghost
+      // Don't let a pending timer outlive the room and notify a ghost.
+      this.clearPhaseTimer();
+      this.clearRoundTimer();
       for (const d of this.displays) d.close();
       this.displays.clear();
       this.onEmpty();
@@ -486,6 +499,7 @@ export class Room {
   // force-advance, and (M3) the roundTimerSec expiry all land here.
   private advanceRound(): void {
     this.clearPhaseTimer();
+    this.clearRoundTimer();
     this.flushRoundHistory();
     this.queue = [];
     this.roundLocks = [];
@@ -526,6 +540,7 @@ export class Room {
     this.phase = "draw";
     this.setPhaseTimer(this.drawMs, () => {
       this.phase = "open_floor";
+      this.startRoundTimer(); // the clock starts when the floor does, not at the draw
       this.notifyAll();
     });
   }
@@ -538,6 +553,10 @@ export class Room {
     this.roundNumber++;
     this.topic = this.popTopic();
     this.phase = "last_call";
+    // last_call is an open-floor variant (docs/06), so the soft timer applies
+    // here too — otherwise the one phase with no next round is also the one
+    // phase that can only be un-stalled by the host.
+    this.startRoundTimer();
   }
 
   private markHouseHits(numbers: number[]): void {
@@ -583,6 +602,7 @@ export class Room {
 
   private endGame(): void {
     this.clearPhaseTimer();
+    this.clearRoundTimer();
     this.results = this.buildResults();
     this.phase = "results";
   }
@@ -626,6 +646,35 @@ export class Room {
   private clearPhaseTimer(): void {
     if (this.phaseTimer) clearTimeout(this.phaseTimer);
     this.phaseTimer = null;
+  }
+
+  /**
+   * The optional soft round timer (docs/03): on expiry it does *exactly* what
+   * host force-advance does, by calling the same code — unresolved players
+   * auto-pass and a stalled proposal is auto-withdrawn by advanceRound's reset.
+   */
+  private startRoundTimer(): void {
+    this.clearRoundTimer();
+    const sec = this.settings.roundTimerSec;
+    if (sec === null) return;
+    this.roundTimer = setTimeout(() => {
+      this.roundTimer = null;
+      if (this.phase !== "open_floor" && this.phase !== "last_call") return;
+      if (this.phase === "last_call") {
+        this.flushRoundHistory();
+        this.endGame();
+      } else {
+        this.advanceRound(); // notifies on its own
+        return;
+      }
+      // Fires outside app.ts's router, so this path sends its own snapshot.
+      this.notifyAll();
+    }, sec * this.roundTimerMsPerSec);
+  }
+
+  private clearRoundTimer(): void {
+    if (this.roundTimer) clearTimeout(this.roundTimer);
+    this.roundTimer = null;
   }
 
   getPrivateBoard(player: Player): PrivateBoard {
