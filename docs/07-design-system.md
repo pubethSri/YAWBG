@@ -23,6 +23,7 @@ deliberate non-goal until after v1 (revisit with real night-play feedback).
 | Name | Value | Token | Role |
 |---|---|---|---|
 | Cream Blush | `#ffe9ce` | `--color-cream-blush` | Page canvas — the tabletop everything sticks to |
+| Tabletop Mark | `#f0d0a8` | `--color-tabletop-mark` | The canvas texture's dot — decoration only, never text or a border |
 | Paper White | `#ffffff` | `--color-paper-white` | Cards, speech bubbles, board cells, neutral plates inside color blocks |
 | Ink Black | `#000000` | `--color-ink-black` | Primary text, wordmark, sticker outlines, the die-cut ring's outer band |
 | Slate Gray | `#666666` | `--color-slate-gray` | Secondary text, muted helper copy |
@@ -45,6 +46,11 @@ deliberate non-goal until after v1 (revisit with real night-play feedback).
   invert within a block. Deep Indigo is allowed as accent text on cream/white
   only.
 - Max **four sticker colors in one composition** — collage, not kaleidoscope.
+- **Tabletop Mark is a neutral, not a tint.** It is the one color defined by
+  being *nearly* another one, so the rule needs saying explicitly: it is a warm
+  neutral with its own hex, not Cream Blush (or ink) at reduced opacity. It
+  never carries text, never draws a border, and never appears at any size or
+  weight other than the canvas texture below. See "The tabletop texture".
 - Page rhythm on marketing-ish surfaces (landing, results) is alternating
   full-bleed color blocks (violet → yellow → coral → cream), not white/gray
   bands. In-game screens stay calmer: cream canvas + white cells, with color
@@ -69,6 +75,17 @@ introduce a pair that isn't on this list without measuring it first.
 | Ink ring vs Cream canvas | 17.80:1 | UI ✓ |
 | Ink ring vs Paper White | 21.00:1 | UI ✓ |
 | Electric Violet fill vs Cream | 5.22:1 | UI ✓ |
+| Ink on Tabletop Mark | 14.29:1 | Body ✓ |
+| Tabletop Mark vs Cream canvas | 1.25:1 | Decoration — **must stay under 3:1** |
+
+The last row is the only **upper** bound in this table, and it is deliberate.
+Every other pair has a floor to clear; the texture mark has a *ceiling*. A
+decorative pattern that reaches 3:1 has started to read as structure — a grid
+the eye tries to parse, a border, a thing that means something. If a future
+change "improves" that ratio, the texture has become a bug. The pair above it
+is the assertion that matters for reading: body text sits on the cream, but
+some glyphs will land over dots, and ink on the mark still clears 4.5:1 three
+times over.
 
 **Banned pairs** (previously in this doc, measured and removed): white on coral
 (3.37:1), white on aqua (1.79:1), and a bare yellow ring on cream (1.18:1) or
@@ -133,6 +150,7 @@ it is read from across a room.
 | body-sm | UI | 14px | 24px | 400–500 |
 | body / input / button | UI | 16px | 28px | 400 (buttons 700) |
 | cell name | UI | 14px, auto-shrink floor **12px** | 24px | 600 |
+| waiting-room chip | UI | — (display only) | 40px | 600 |
 | section heading | UI | 18px | 32px | 700 |
 | topic text | Game | 28px | 72px | 600 |
 | verdict / results headline | Game | 32px | 88px | 700 |
@@ -162,6 +180,43 @@ auto-zoom on focus.
   alone — it is invisible on both cream and white.
 - Sticker rotation: -15° to 15°; energy comes from angle, not extra colors.
   Stickers may overlap and crowd; never separate them with gray dividers.
+
+### The tabletop texture
+
+The cream canvas carries a **regular lattice of small dots** in Tabletop Mark —
+the faint printed grain of a board-game box insert or a sheet of graph paper
+gone warm with age. It is the only patterned surface in the system.
+
+- **Geometry:** round dots on an orthogonal grid, **1.5 px radius on a 24 px
+  pitch** — a dot-to-pitch ratio of roughly 1:8. The ratio is the load-bearing
+  number; if the pitch changes the radius scales with it.
+- **Where:** the `body` canvas, once. Nowhere else. Every Paper White surface
+  (cards, cells, sheets, speech bubbles, the QR quiet zone) already occludes it
+  by being opaque, and none of them re-declare it. Full-bleed color blocks
+  cover it too — there is no per-block variant, because a cream-colored mark on
+  violet would be a tint by another name.
+- **Drawn as an inline SVG `data:` URI**, not a gradient. This is not pedantry
+  about the no-gradients rule: a hard-stop `radial-gradient` would work, but an
+  SVG circle antialiases cleanly at any `background-size`, and keeping the word
+  "gradient" out of the stylesheet keeps the rule unambiguous for the next
+  reader. **CSS variables do not interpolate inside `url()`** — the mark hex is
+  therefore written twice, once as the token and once inside the URI. Comment
+  the duplication where it lives so nobody tries `var()` there and concludes the
+  token is broken.
+- **The display doubles the tile** to a 48 px pitch, and *only* the tile — same
+  SVG, same token, one `background-size` override on the display shell. This is
+  the one place the system is deliberately not surface-agnostic, and the reason
+  is physical: at 24 px on a 55" screen the dots are about 1.9 mm at 18 mm
+  spacing, roughly 2 arcmin at 3 m, which is the threshold where texture stops
+  existing. At 48 px the TV reads as textured without the grid becoming
+  countable (~40 columns across).
+- **It is not a depth cue.** The die-cut ring remains the only elevation in the
+  system. No vignette, no density falloff, no per-card texture variation, no
+  second mark color for "raised" surfaces — those would make the pattern a
+  second, competing depth language.
+- **Reduced motion, print and export:** the texture is static, so it is
+  unaffected by `prefers-reduced-motion`, and it *does* ship in the
+  share-to-PNG render (see below).
 
 ## Motion
 
@@ -240,7 +295,13 @@ Screen applications (see `06-key-screens.md` for layout):
   numbers; the "2 away" chip uses coral text on white.
 - **Share-to-PNG board**: rendered on the cream canvas with the wordmark, room
   code, date, and a starburst win/lose stamp — the exported image is a design
-  artifact of this system, same tokens.
+  artifact of this system, same tokens. **The export carries the tabletop
+  texture** at the base 24 px pitch (not the display's 48 px): the exported
+  board is a phone-sized artifact viewed in a chat app, so it takes the
+  phone-sized tile. Decided ahead of M4 so the reveal work doesn't have to
+  guess. If chat-app recompression turns the dots to mush in practice, that is
+  a measurement to make against a real export, not a reason to pre-emptively
+  drop it.
 
 ## Icons
 
@@ -260,7 +321,8 @@ pairs; use tabular numerals for anything that counts; keep the serif rare.
 **Don't**: no drop shadows/blur/gradients/static opacity layering; no tints of
 brand colors; no bare yellow ring; no white text on coral or aqua; no gray-fill
 buttons; no serif body text; no Shout voice in body sizes; no text below 12 px;
-no new radii; no dark mode work in v1.
+no new radii; no dark mode work in v1; no second patterned surface and no
+per-component re-declaration of the tabletop texture.
 
 ## Quick start (Tailwind v4 `@theme`)
 
@@ -274,6 +336,7 @@ every motion token and the spacing base resolve to the empty string.
 @theme static {
   /* Colors */
   --color-cream-blush: #ffe9ce;
+  --color-tabletop-mark: #f0d0a8;
   --color-paper-white: #ffffff;
   --color-ink-black: #000000;
   --color-slate-gray: #666666;
@@ -321,6 +384,20 @@ every motion token and the spacing base resolve to the empty string.
   --duration-showpiece: 400ms;
   --ease-enter: cubic-bezier(0, 0, 0.2, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* The tabletop texture. Declared once, on the canvas, and nowhere else.
+   The mark hex is duplicated inside the data URI on purpose: CSS variables
+   do not interpolate inside url(). Keep the two in sync by hand. */
+body {
+  background-color: var(--color-cream-blush);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='1.5' fill='%23f0d0a8'/%3E%3C/svg%3E");
+  background-size: 24px 24px;
+}
+
+/* Display only — same SVG, same token, twice the pitch, for 3 m legibility. */
+.display-shell {
+  background-size: 48px 48px;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -28,6 +28,7 @@ accounts, join by 4-letter room code.
 | 06 | [`06-key-screens.md`](06-key-screens.md) | Interaction design for the two hard screens: board editor (dump/arrange modes, swap gestures, ready semantics) and open floor (layout stack, takeover, pass confirm); responsive/landscape rules | You're building or changing the board-fill or round-loop UI |
 | 07 | [`07-design-system.md`](07-design-system.md) | Visual language: sticker-bombed-tabletop theme, color tokens + measured contrast table + game-state mapping, three-voice typography (Fraunces / Inter+Kanit / Baloo 2, Thai included), shape & the die-cut ring, motion, component recipes, Tailwind `@theme` quick start | You're styling anything. Light-only for v1 |
 | 08 | [`08-deployment.md`](08-deployment.md) | Ship recipe: shared org VM with *ito* via Caddy vhosts, TLS modes (incl. org certs), compose layout, proxy WS requirements, deploy flow, SQLite backup | You're deploying, or touching proxy/TLS/compose |
+| 09 | [`09-display-stage.md`](09-display-stage.md) | **Designed, not built.** Display Stage layout spec: auto-sized House, the waiting room replacing the empty right pane, three removals, colour budget; plus the 25-step manual test covering the Stage and the canvas texture | You're building the display polish pass, or wondering why the House column is `auto` |
 
 Seed topic decks live outside `docs/` in [`../decks/`](../decks/):
 `general.json` is the deck that actually ships (upserted into SQLite on boot),
@@ -47,6 +48,11 @@ The post-M2 roadmap was **reordered** (2026-07-23) to ship a public build
 early: M3 display → M4 results → M5 polish & responsive → M6 deploy & playtest
 → M7 decks & admin → M8 hardening. The display ships styled in M3 rather than
 waiting for M5 — see the note at the top of that milestone.
+
+Part of M5 was **designed early** (2026-07-23) without being built: the display
+Stage polish and a new global canvas texture. The texture's tokens and rules
+are in `07`; the Stage layout and its manual test are in `09`. Build order is
+unchanged — M4 is still next.
 
 Two rulings settled during M2 that these artifacts now reflect:
 
