@@ -150,13 +150,11 @@ cohere and covers non-phone form factors, so the first public build isn't
 embarrassing.
 
 Built in slices, each ending with a manual test the user runs before the next
-begins. Slice 1 (the display Stage + the texture) is done; the cohesion audit,
-motion pass, responsive pass and PWA are outstanding. Decisions settled for the
-remaining slices: the PWA is **manifest + icons, no service worker** (an icon
-asset still has to be drawn — the repo has none); the responsive pass covers
-the open floor, the board editor **and** the lobby/home/results screens; and
-the display's stage-① roast grid **scales its type down to fit** rather than
-clipping at large pools.
+begins. **Slice 1 (the display Stage + the texture) is done**; the cohesion
+audit, motion pass, responsive pass and PWA are outstanding — and by decision
+(2026-07-23) **M5.5 is built before them**, so the remaining slices resume after
+the reel. Every open question in them was settled in that same session; the
+bullets below are the answers, not options.
 
 - Cross-surface cohesion audit against `07-design-system.md`: the House board,
   cells, lock tags and status grids must read as the same objects on phone and
@@ -171,8 +169,21 @@ clipping at large pools.
 - Responsive pass per `06-key-screens.md` (player view only — the display is
   landscape-first and unrelated): landscape-phone two-pane layout;
   tablet/desktop inlining (House board + queue beside a max-width board); cell
-  auto-shrink floor tuning on small phones.
-- PWA manifest + install prompt.
+  auto-shrink floor tuning on small phones; **and a capped, centred content
+  column on the conventional screens** — landing, lobby, board editor, results.
+  There is currently not one breakpoint utility in the client, so this is
+  greenfield rather than a retro-fit, and `RoundScreen.svelte` is its biggest
+  single item.
+- **Display results, stage ①:** the roast grid is `overflow-hidden` with
+  auto-fill columns, so a large lobby with a big pool (12 × K=8 = 96 entries)
+  silently clips. Fix by **scaling the entry type down to a floor** rather than
+  clipping. Realistic games (5 × K=3) fit today, so this is a robustness item,
+  not a visible bug.
+- **PWA: manifest + icons, no service worker.** The game is WebSocket-all-the-way
+  down, so an offline shell would buy a splash screen and cost a stale-worker
+  update prompt to design. Installable, correct name / theme-color / icons /
+  standalone. **An icon asset still has to be drawn** — the repo has none and
+  there is no `apps/client/public/` directory yet.
 
 **Exit test:** the game looks deliberate on a phone, a tablet and a laptop, and
 nothing on screen looks like a placeholder.

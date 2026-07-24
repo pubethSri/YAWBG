@@ -43,7 +43,7 @@ state. One server hosts many concurrent rooms (see `02-architecture.md`,
 | `draw` | **Draw moment** | Not a separate screen: a short takeover animation on the round screen — number(s) roll in, House hits flash, topic slams down — then settles into the open floor |
 | `open_floor` | **Open floor** | Topic banner, own board, propose / confirm / withdraw / pass, proposal queue awareness, House status. *The other hard screen — see `06`* |
 | `last_call` | **Last call** | Open floor variant with "final round" framing. Only when `lastCall` on |
-| `results` | **Results sequence** | Staged reveal, in order: ① winners → ② pool authorship roast (when K > 0) → ③ full boards + lock tags + share-to-PNG + play again (host) |
+| `results` | **Results sequence** | Staged reveal, in order: ① winners → ② pool authorship roast (when K > 0) → ③ full boards + lock tags + share-to-PNG → ④ **the highlight reel** + play again (host). Stage ④ is designed, not built — see `10-highlight-reel.md`. **These are 1-indexed; `revealStage` on the wire is 0-indexed**, so ④ is `revealStage === 3` |
 
 ## Display states
 
@@ -52,8 +52,8 @@ state. One server hosts many concurrent rooms (see `02-architecture.md`,
 | — | **Connect** | Room code entry |
 | `lobby` | **Lobby splash** | Room code huge + QR (`/?code=XXXX`), live roster |
 | `board_fill` / `distribute` | **Fill progress** | Who's done, ambient |
-| `draw` + `open_floor` + `last_call` | **Stage** | One persistent super-state: House board + called numbers always visible, current topic huge, spotlight card for the proposal at queue front, player status strip. Draw plays as theatre *within* this layout — the House board never jumps around between phases |
-| `results` | **Results reveal** | Mirrors the phone sequence stage-by-stage |
+| `draw` + `open_floor` + `last_call` | **Stage** | One persistent super-state: House board + called numbers always visible, current topic huge, spotlight card for the proposal at queue front, and the **waiting room** — one large chip per player, queue members first. Draw plays as theatre *within* this layout — the House board never jumps around between phases. Rebuilt in M5; layout spec and rationale in `09-display-stage.md` |
+| `results` | **Results reveal** | Mirrors the phone sequence stage-by-stage. At stage ④ the display auto-rotates the reel's cards while the phone swipes them — same order, different affordance (`10-highlight-reel.md`) |
 
 ## Locked flow decisions
 
@@ -67,9 +67,13 @@ state. One server hosts many concurrent rooms (see `02-architecture.md`,
    button that appears for the host only when the round stalls. If host verbs
    accumulate, revisit as a host drawer — not now.
 6. **Results is a host-paced, synchronized sequence.** All phones and displays
-   move through stages ①→②→③ together — the authorship roast is a shared moment,
-   not a private scroll. Protocol: host-only `results.advance` ★ intent +
-   `revealStage` field in `ResultsPayload` (now specified in `03-protocol.md`).
+   move through stages ①→②→③→④ together — the authorship roast is a shared
+   moment, not a private scroll. Protocol: host-only `results.advance` ★ intent
+   + `revealStage` field in `ResultsPayload` (specified in `03-protocol.md`).
+   **Stage ④ is the one exception to lock-step**, and deliberately: the reel is
+   an idle screen, so each surface holds its own card position within a shared
+   order. Nothing is revealed by being on card 3 rather than card 1, which is
+   what makes it safe to desynchronize where the earlier stages are not.
 
 ## Open items
 

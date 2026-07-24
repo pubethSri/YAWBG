@@ -147,6 +147,10 @@ flow — lives in `08-deployment.md`.)*
 
 - No accounts for players, no matchmaking, no public room list.
 - No in-app voting/judging — the table judges (possible future remote-play mode).
+  **The M5.5 cheer mechanic is not a breach of this** and was flagged rather than
+  assumed: a cheer gates no lock, enters no score, and is invisible while any
+  decision is live. That last clause is what keeps it applause instead of a
+  verdict — a live tally would re-open this wall. See `10-highlight-reel.md`.
 - No server-side image rendering.
 - No horizontal scaling, no Redis, no message queue.
 - No persistence of live games across restarts.

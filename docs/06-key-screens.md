@@ -113,3 +113,18 @@ reach — the display-optional principle (`05`) is unaffected.
   beside the board. Cell auto-shrink rarely engages at these widths.
 - **Display view** stays landscape-first (`05`) and is unrelated to these
   player-view breakpoints.
+
+### The rest of the player view
+
+Settled 2026-07-23, when M5's responsive slice was scoped: the pass covers the
+two hard screens above **and** the conventional ones — landing, lobby, board
+editor and results. They are not designed here because they need no interaction
+design, only a width constraint, but leaving them out of scope would defeat the
+milestone's exit test.
+
+The rule for all of them is the same and it is one line: **cap the content
+column and centre it.** A form or a roster stretched across a 1440 px laptop is
+precisely what "looks like a placeholder" means, and the lobby is the first
+screen a desktop playtester ever sees. No new components, no reflow, no
+information that a phone can't reach — the "breakpoints reveal, they don't add"
+principle above applies unchanged.
