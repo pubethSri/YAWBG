@@ -9,7 +9,10 @@ ever declared outside the protocol package.**
 
 - Envelope: `{ "type": string, "payload": object }`, JSON over one WS endpoint.
 - `PROTOCOL_VERSION` exported constant; client sends it on join/resume, server
-  rejects mismatches (prevents stale-tab weirdness after deploys).
+  rejects mismatches (prevents stale-tab weirdness after deploys). **Currently
+  5** — M5.5 took it 3 → 4 for the reel and cheers, then 4 → 5 the same day when
+  the reel's card became one *name* instead of one round. The second bump was
+  affordable only because nothing is deployed; from M6 on, weigh one properly.
 - Server → client state is **full-snapshot**, not diffs.
 - IDs: `playerId` = nanoid; `code` = 4 uppercase letters; cells indexed `0–24`
   (row-major, row 3 = indices 10–14).
@@ -197,15 +200,25 @@ interface ResultsPayload {
                   topicText: string;
                   locks: { playerId: string; name: string;
                            cellIndex: number }[] }[];
-  // v4. Overlaps roundHistory on locked names deliberately: roundHistory is the
+  // v5: one card per *proposal* — one name, by one person, for one topic. The
+  // v4 draft grouped a round's names into an `entries[]` list; twelve players
+  // made that unreadable, so `ReelEntry` was folded in and deleted
+  // (10-highlight-reel.md decision 3). Several cards therefore repeat the same
+  // round/topic/numbers, which is the format rather than a duplication bug.
+  //
+  // Server-sorted: cheers DESC, then fnv1a(proposalId) ASC. Ordering here and
+  // not in each client is what keeps the auto-rotating display and the swiped
+  // phone on one sequence.
+  //
+  // Overlaps roundHistory on locked names deliberately: roundHistory is the
   // always-public record, reel is the gated one, and merging them would put a
   // gated field inside an ungated structure. `playerName` is carried rather
   // than looked up because a player removed at grace expiry is no longer in
   // `players`.
   reel: { round: number; topicText: string; drawnNumbers: number[];
-          entries: { proposalId: string; playerId: string; playerName: string;
-                     name: string; outcome: 'locked' | 'withdrawn';
-                     cheers: number }[] }[];
+          proposalId: string; playerId: string; playerName: string;
+          name: string; outcome: 'locked' | 'withdrawn';
+          cheers: number }[];
 }
 ```
 

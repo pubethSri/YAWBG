@@ -2,6 +2,7 @@
   import type { PublicRoomState } from "@yawbg/protocol";
   import HouseBoard from "../room/HouseBoard.svelte";
   import ReelCard from "../ReelCard.svelte";
+  import { crownedProposalId } from "../reel";
   import Starburst from "../Starburst.svelte";
 
   /**
@@ -39,6 +40,9 @@
 
   // ── Stage ③: the reel ────────────────────────────────────────────────────
   const reel = $derived(results?.reel ?? []);
+  const crowned = $derived(crownedProposalId(reel));
+  /** Past a dozen, dots stop being readable across a room; show a counter. */
+  const MAX_DOTS = 12;
 
   /** docs/10 decision 7: the TV rotates, the phone swipes. */
   const ROTATE_MS = 10_000;
@@ -235,7 +239,10 @@
              pushed this screen past the viewport twice before, and the display
              never scrolls. -->
         <div class="flex min-h-0 flex-1 justify-center px-[4vw]">
-          {#key reel[cardIndex]?.round}
+          <!-- Keyed on the proposal, not the round: several cards can share a
+               round now, and keying on it would drop the cross-fade between two
+               names from the same topic. -->
+          {#key reel[cardIndex]?.proposalId}
             <!-- `h-full`, not `max-h-full`, and the outer row must NOT centre:
                  the card's own `max-h-full` is a percentage, and a percentage
                  max-height against an auto-height parent resolves to `none`.
@@ -250,6 +257,7 @@
               <ReelCard
                 card={reel[cardIndex]!}
                 variant="display"
+                crowned={reel[cardIndex]!.proposalId === crowned}
                 tilt={TILTS[cardIndex % TILTS.length]}
               />
             </div>
@@ -258,13 +266,19 @@
 
         {#if reel.length > 1}
           <div class="flex shrink-0 items-center justify-center gap-[0.6vw]">
-            {#each reel as c, i (c.round)}
-              <span
-                class="fill-transition h-[1.2vh] w-[1.2vh] rounded-[var(--radius-pill)] border-2 border-near-black"
-                class:bg-ink-black={i === cardIndex}
-                class:bg-paper-white={i !== cardIndex}
-              ></span>
-            {/each}
+            {#if reel.length <= MAX_DOTS}
+              {#each reel as c, i (c.proposalId)}
+                <span
+                  class="fill-transition h-[1.2vh] w-[1.2vh] rounded-[var(--radius-pill)] border-2 border-near-black"
+                  class:bg-ink-black={i === cardIndex}
+                  class:bg-paper-white={i !== cardIndex}
+                ></span>
+              {/each}
+            {:else}
+              <span class="tabular font-ui text-d-body-sm font-semibold text-slate-gray">
+                {cardIndex + 1} / {reel.length}
+              </span>
+            {/if}
           </div>
         {/if}
       {:else}

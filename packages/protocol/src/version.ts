@@ -7,4 +7,10 @@
 // and a fourth `revealStage`, plus the `round.cheer` intent.
 // The gate exists to kill stale tabs after a deploy — an M1 client cannot play
 // an M2 game.
-export const PROTOCOL_VERSION = 4;
+// Bumped to 5 the same day: the reel's card became one *name* rather than one
+// round (docs/10 decision 3, reversed after seeing a full table's card), so
+// `ReelCard` absorbed `ReelEntry` and `ReelEntry` is gone. A second bump was
+// affordable only because nothing is deployed yet — M6 is the first public
+// build, so there are no live clients for a version break to strand. Once M6
+// ships, weigh a bump the way v4's note does.
+export const PROTOCOL_VERSION = 5;

@@ -292,9 +292,41 @@ describe("M5.5 the reel", () => {
     // `open_floor` is part of the predicate on purpose: `draw()` increments the
     // round number *before* setting the phase, so "round > 1" alone settles on a
     // frame where the floor is still closed and the next pass is a WRONG_PHASE.
-    const opened = await drainUntil(
+    let opened = await drainUntil(
       g.all,
       (x) => (x.phase === "open_floor" && x.round!.number > 1) || x.phase === "results",
+    );
+
+    // Round 2: everybody passes, so it contributes no card at all.
+    for (const c of g.all) c.send({ type: "round.pass", payload: {} });
+    opened = await drainUntil(
+      g.all,
+      (x) => (x.phase === "open_floor" && x.round!.number > 2) || x.phase === "results",
+    );
+
+    // Round 3: one proposal with one cheer — fewer than round 1's leader, more
+    // than round 1's other card. Its position in the finished reel is the whole
+    // proof that cards are no longer grouped by round.
+    //
+    // Asserted rather than guarded: the House needs a full line and gets three
+    // numbers a round, so ending before round 3 would take a ~1-in-a-million
+    // draw. If that ever fires, the interleave assertions below would silently
+    // stop running, which is worse than a flake.
+    expect(opened.phase).toBe("open_floor");
+    expect(opened.round!.number).toBe(3);
+    g.p3.send({ type: "round.propose", payload: { cellIndex: 9 } });
+    s = await settle(g.all);
+    const middleId = s.round!.proposals[0]!.proposal.id;
+    g.host.send({ type: "round.cheer", payload: { proposalId: middleId, on: true } });
+    await settle(g.all);
+    g.p3.send({ type: "round.confirm", payload: {} });
+    await settle(g.all);
+    g.host.send({ type: "round.pass", payload: {} });
+    await settle(g.all);
+    g.p2.send({ type: "round.pass", payload: {} });
+    opened = await drainUntil(
+      g.all,
+      (x) => (x.phase === "open_floor" && x.round!.number > 3) || x.phase === "results",
     );
 
     s = await passUntilResults(g, opened);
@@ -309,14 +341,18 @@ describe("M5.5 the reel", () => {
 
     s = await advanceTo(g, s, 3);
     const reel = s.results!.reel;
-    expect(reel).toHaveLength(1); // only round 1 produced anything
-    const card = reel[0]!;
-    expect(card.round).toBe(1);
-    expect(card.topicText).toBeTruthy();
-    expect(card.drawnNumbers).toHaveLength(3);
+    // One card per *proposal*, not per round: round 1 made two, round 3 made
+    // one, round 2 and every later round made none.
+    expect(reel).toHaveLength(3);
+    for (const c of reel) {
+      expect(c.topicText).toBeTruthy();
+      expect(c.drawnNumbers).toHaveLength(3);
+    }
 
-    expect(card.entries).toHaveLength(2);
-    expect(card.entries[0]).toMatchObject({
+    // Sorted by cheers descending across the whole reel, so round 3's single
+    // card lands *between* round 1's two. Grouping by round could not produce
+    // this order, which is exactly what the assertion is for.
+    expect(reel[0]).toMatchObject({
       proposalId: lockedId,
       playerId: hostId,
       playerName: "Host",
@@ -324,7 +360,7 @@ describe("M5.5 the reel", () => {
       outcome: "locked",
       cheers: 2,
     });
-    expect(card.entries[1]).toMatchObject({
+    expect(reel.at(-1)).toMatchObject({
       proposalId: withdrawnId,
       playerId: p2Id,
       playerName: "P2",
@@ -332,10 +368,18 @@ describe("M5.5 the reel", () => {
       outcome: "withdrawn",
       cheers: 1,
     });
+    expect(reel.map((c) => c.cheers)).toEqual([...reel.map((c) => c.cheers)].sort((a, b) => b - a));
+    expect(reel[1]!.proposalId).toBe(middleId);
+    expect(reel[1]!.round).toBe(3);
+    // Two cards of round 1 with a round-3 card wedged between them.
+    expect(reel.map((c) => c.round)).toEqual([1, 3, 1]);
+    // Cards of the same round repeat its setup — the format, not a bug.
+    expect(reel[0]!.topicText).toBe(reel[2]!.topicText);
+    expect(reel[0]!.topicText).not.toBe(reel[1]!.topicText);
 
     // Nothing is ever left `live`: docs/10's outcome table has two rows because
     // every path out of a round settles the floor.
-    for (const c of reel) for (const e of c.entries) expect(["locked", "withdrawn"]).toContain(e.outcome);
+    for (const c of reel) expect(["locked", "withdrawn"]).toContain(c.outcome);
 
     for (const c of g.all) c.close();
   }, 60_000);

@@ -154,23 +154,27 @@ export const RoundHistoryEntrySchema = z.object({
 });
 export type RoundHistoryEntry = z.infer<typeof RoundHistoryEntrySchema>;
 
-export const ReelEntrySchema = z.object({
-  proposalId: z.string(),
-  playerId: z.string(),
-  // Carried, not looked up: a player removed by grace expiry mid-game is gone
-  // from `players` by results, and their entry still has to render (docs/10).
-  playerName: z.string(),
-  name: z.string(),
-  outcome: z.enum(["locked", "withdrawn"]),
-  cheers: z.number().int().min(0),
-});
-export type ReelEntry = z.infer<typeof ReelEntrySchema>;
-
+/**
+ * One card is **one name, by one person, for one topic** (v5). A round with
+ * several proposals produces several cards that repeat its topic and numbers —
+ * the topic is the setup and it is meant to be re-read with each new punchline.
+ *
+ * This replaced a card-per-round carrying an `entries[]` list, which at a full
+ * table put twelve names on one card and forced the type down until the joke
+ * was unreadable across a room. See `10-highlight-reel.md` decision 3.
+ */
 export const ReelCardSchema = z.object({
   round: z.number().int(),
   topicText: z.string(),
   drawnNumbers: z.array(z.number().int()),
-  entries: z.array(ReelEntrySchema),
+  proposalId: z.string(),
+  playerId: z.string(),
+  // Carried, not looked up: a player removed by grace expiry mid-game is gone
+  // from `players` by results, and their card still has to render (docs/10).
+  playerName: z.string(),
+  name: z.string(),
+  outcome: z.enum(["locked", "withdrawn"]),
+  cheers: z.number().int().min(0),
 });
 export type ReelCard = z.infer<typeof ReelCardSchema>;
 
@@ -199,10 +203,10 @@ export const ResultsPayloadSchema = z.object({
    * surprise, and leaking it early spoils the reel exactly the way an early
    * `boards` would spoil the authorship roast.
    *
-   * Already sorted by the server: cards by (max cheers on the card) DESC, then
-   * by a stable hash of (topicText + round). Ordering it here rather than in
-   * each client is what guarantees the auto-rotating TV and the swiped phone
-   * are walking the same sequence (docs/10 decision 7).
+   * Already sorted by the server: by `cheers` DESC, then by a stable hash of
+   * the proposal. Ordering it here rather than in each client is what
+   * guarantees the auto-rotating TV and the swiped phone are walking the same
+   * sequence (docs/10 decision 7).
    *
    * Overlaps `roundHistory` on locked names. That duplication is deliberate:
    * `roundHistory` is the always-public record and this is the gated one, and

@@ -810,8 +810,10 @@ export class Room {
   }
 
   /**
-   * One card per round that produced at least one proposal — a topic nobody
-   * answered is not a joke, so it gets no card (docs/10's edge cases).
+   * One card per *proposal* — one name, by one person, for one topic. A round
+   * that produced nothing gets no cards at all, because a topic nobody answered
+   * is not a joke (docs/10's edge cases); a round that produced five names gets
+   * five cards that repeat its topic, which is the point rather than a cost.
    *
    * Sorted here rather than in each client: the auto-rotating display and the
    * swiped phone have to be walking the same sequence even when they are on
@@ -819,47 +821,33 @@ export class Room {
    * two implementations agreeing by luck.
    */
   private buildReel(): ReelCard[] {
-    const byRound = new Map<number, ProposalRecord[]>();
-    for (const r of this.proposalRecords) {
-      const list = byRound.get(r.round);
-      if (list) list.push(r);
-      else byRound.set(r.round, [r]);
-    }
+    const roundInfo = new Map(this.roundHistory.map((h) => [h.round, h]));
 
     const cards: ReelCard[] = [];
-    for (const history of this.roundHistory) {
-      const records = byRound.get(history.round);
-      if (!records || records.length === 0) continue;
+    for (const r of this.proposalRecords) {
+      const history = roundInfo.get(r.round);
+      if (!history) continue; // a round that never reached the history flush
       cards.push({
-        round: history.round,
+        round: r.round,
         topicText: history.topicText,
         drawnNumbers: history.drawnNumbers,
-        // Cheers first, then the order they were proposed in — `records` is
-        // already in proposal order, and sort() is stable, so the tiebreak is
-        // free rather than something to encode.
-        entries: records
-          .map((r) => ({
-            proposalId: r.id,
-            playerId: r.playerId,
-            playerName: r.playerName,
-            name: r.name,
-            outcome: r.outcome === "locked" ? ("locked" as const) : ("withdrawn" as const),
-            cheers: r.cheeredBy.size,
-          }))
-          .sort((a, b) => b.cheers - a.cheers),
+        proposalId: r.id,
+        playerId: r.playerId,
+        playerName: r.playerName,
+        name: r.name,
+        outcome: r.outcome === "locked" ? "locked" : "withdrawn",
+        cheers: r.cheeredBy.size,
       });
     }
 
-    // The funniest round leads, which is what a looping idle screen wants: the
+    // The best-loved name leads, which is what a looping idle screen wants: the
     // first thing a newcomer sees should be the best one. With no cheers at all
     // the first key is constant and the hash gives a stable shuffle — the "pick
-    // a random round" behaviour the reel needs before cheers exist. One rule,
-    // both halves (docs/10 decision 7).
-    const topCheers = (c: ReelCard): number => c.entries[0]?.cheers ?? 0;
+    // a random one" behaviour the reel needs before cheers exist. One rule,
+    // both halves (docs/10 decision 7). `proposalId` is unique within a game,
+    // so the tiebreak is total and no two cards can ever compare equal.
     return cards.sort(
-      (a, b) =>
-        topCheers(b) - topCheers(a) ||
-        fnv1a(a.topicText + a.round) - fnv1a(b.topicText + b.round),
+      (a, b) => b.cheers - a.cheers || fnv1a(a.proposalId) - fnv1a(b.proposalId),
     );
   }
 

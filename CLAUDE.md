@@ -35,10 +35,10 @@ breakpoint utility in the whole client — that pass is greenfield, not a
 retro-fit, and `RoundScreen.svelte` (539 lines) is its biggest single item.
 
 **M5.5 — `docs/10-highlight-reel.md` — is BUILT** (2026-07-24, both slices in
-one session, `PROTOCOL_VERSION` **4**). It adds a fourth results stage (a
-rotating card pairing each round's topic with every name proposed for it,
-**withdrawn ones included**) plus the *cheer* mechanic. `docs/10`'s 25-step
-manual test has not been run yet. The one rule to keep holding:
+one session, `PROTOCOL_VERSION` **5**). It adds a fourth results stage (a
+rotating card pairing one round's topic with **one** name proposed for it,
+withdrawn ones included) plus the *cheer* mechanic. `docs/10`'s 25-step manual
+test has not been run yet. The one rule to keep holding:
 
 - **The hidden tally is a rule, not a presentation choice.** Cheers clear the
   "no in-app voting/judging" wall in `docs/02` only because no count is visible
@@ -259,19 +259,36 @@ M5 notes (slice 1 — display Stage + tabletop texture, built 2026-07-23;
 
 M5.5 notes (the highlight reel & cheers, built 2026-07-24):
 
-- **`PROTOCOL_VERSION` is now 4.** `Proposal` gained `id` (server-assigned,
-  `p1`, `p2`, …; `(playerId, cellIndex)` is *not* safe — a player may withdraw
-  and re-propose the same cell in one round), `RoundState` gained `proposals[]`,
-  `PrivateBoard` gained `cheeredProposalIds`, `ResultsPayload` gained `reel[]`
-  and a fourth `revealStage`, plus the `round.cheer` intent.
+- **`PROTOCOL_VERSION` is now 5.** v4 added it all: `Proposal` gained `id`
+  (server-assigned, `p1`, `p2`, …; `(playerId, cellIndex)` is *not* safe — a
+  player may withdraw and re-propose the same cell in one round), `RoundState`
+  gained `proposals[]`, `PrivateBoard` gained `cheeredProposalIds`,
+  `ResultsPayload` gained `reel[]` and a fourth `revealStage`, plus the
+  `round.cheer` intent. v5 followed the same day: **`docs/10` decision 3 was
+  reversed** — a reel card is one *name*, not one round — so `ReelEntry` folded
+  into `ReelCard` and is gone. A second bump cost nothing only because nothing
+  is deployed; from M6 on, weigh one properly.
+- **A reel card is one name, by one person, for one topic**, and several cards
+  repeat the same round's topic and numbers on purpose. The first build grouped
+  a round's names into one card and answered the resulting crowding with a
+  shrinking type ramp, a 6-entry cap and a "+N more" tail — three mechanisms all
+  apologising for the format. One name per card deleted all three and made the
+  name the biggest thing on screen. The card is built on `07`'s **speech
+  bubble**, which `07` already assigns to "proposal on stage — *Nok proposes
+  Gordon Ramsay*"; its tail points at the proposer's aqua badge.
+- **Exactly one card is crowned**, and the rule lives in `apps/client/src/lib/reel.ts`
+  — shared, because the phone and the display must crown the same card for the
+  same reason the *ordering* lives on the server.
 - **`app.ts` routes intents through an explicit `case` list with no `default`.**
   A schema-valid intent that isn't listed is silently dropped — no error, no
   broadcast, the client just sees nothing happen. `round.cheer` hit this and it
   looked like a `Room` bug for a while. Add the case when you add an intent.
 - **The reel is sorted on the server**, not by each client. `docs/10` only asked
   for "a pure function of the payload", which two implementations could satisfy
-  and still drift; `Room.buildReel()` ships `reel` pre-ordered so the
-  auto-rotating TV and the swiped phone walk one sequence by construction.
+  and still drift; `Room.buildReel()` ships `reel` pre-ordered (cheers DESC,
+  then `fnv1a(proposalId)`) so the auto-rotating TV and the swiped phone walk one
+  sequence by construction. Anything keyed on a card must key on `proposalId`,
+  never `round` — rounds repeat across cards now.
 - **The display reel card runs its own type unit, `--reel-u:
   min(1vw, 1.78vh)`.** The global `--text-d-*` ramp is vw-driven on purpose, but
   this card is a *vertical stack* on a screen that never scrolls — at 1920×900
@@ -288,9 +305,8 @@ M5.5 notes (the highlight reel & cheers, built 2026-07-24):
   `none`.** That is *why* the above happened: the card's `max-h-full` did
   nothing while its wrapper was `items-center` and therefore content-sized. The
   wrapper stretches to a definite height and centres inside itself.
-- Entry caps differ by surface — 6 on the display, 9 on the phone — because the
-  phone's page scrolls and only has to stay readable. Type shrinks first,
-  "+N more" second, clipping never.
+- Position shows as dots up to 12 cards and a plain `n / N` counter beyond, on
+  both surfaces: one name per card means a full table makes dozens.
 - **`resetForNewGame()` clears `proposalRecords` and `proposalSeq`.** Game two's
   round 1 has the same round *number* as game one's, so a survivor surfaces
   immediately on `round.proposals` — `reel.test.ts` asserts exactly that.

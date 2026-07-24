@@ -233,17 +233,21 @@ retrofitting it after M6 would mean a second protocol bump *and* a second
 playtest to judge it — and the ending is exactly the part of the game a playtest
 has opinions about.
 
-- **A fourth reveal stage (③).** After the boards, a rotating card shows one
-  round's topic and every name proposed for it — locked and **withdrawn** alike.
+- **A fourth reveal stage (③).** After the boards, a rotating card pairs one
+  round's topic with one name proposed for it — locked and **withdrawn** alike,
+  one card per name.
   `game.playAgain` moves here, so the host paces the reel by staying on it.
 - **Cheers.** Any player may applaud any name proposed in the current round.
   The tally is hidden until stage ③, where it orders the cards and crowns a
   crowd favourite. It gates nothing and scores nothing.
 - Game log persists the reel.
 
-**Built 2026-07-24 at `PROTOCOL_VERSION` 4**, both slices in one session, so
+**Built 2026-07-24 at `PROTOCOL_VERSION` 5**, both slices in one session, so
 `round.cheer` was never live-in-schema-only and `03-protocol.md` no longer
-carries the ✎ marker. `docs/10`'s 25-step manual test has **not** been run yet,
+carries the ✎ marker. The reel shipped at v4 and went to v5 the same day:
+`docs/10` decision 3 was reversed once a full table's card was on a real screen,
+so a card is now one **name** rather than one round. A second bump was
+affordable only because nothing is deployed yet. `docs/10`'s 25-step manual test has **not** been run yet,
 and the exit test needs the playtest (see the ledger above).
 
 **Scope-wall note:** `02-architecture.md` bans in-app voting/judging. Cheers

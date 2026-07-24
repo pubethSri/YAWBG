@@ -4,6 +4,7 @@
   import { shareBoard, type ShareOutcome } from "../share";
   import HouseBoard from "./HouseBoard.svelte";
   import ReelCard from "../ReelCard.svelte";
+  import { crownedProposalId } from "../reel";
   import Starburst from "../Starburst.svelte";
 
   /**
@@ -65,6 +66,11 @@
 
   // ── Stage ③: the reel ────────────────────────────────────────────────────
   const reel = $derived(results?.reel ?? []);
+  const crowned = $derived(crownedProposalId(reel));
+  // A full table produces a lot of cards now that each holds one name. Dots
+  // stop being readable long before they stop being drawable, so past a dozen
+  // the position becomes a plain counter.
+  const MAX_DOTS = 12;
 
   let cardIndex = $state(0);
 
@@ -322,9 +328,15 @@
             ontouchstart={onTouchStart}
             ontouchend={onTouchEnd}
           >
-            {#key reel[cardIndex]?.round}
+            <!-- Keyed on the proposal, not the round: several cards can share a
+                 round now, and keying on it would skip the fade between two
+                 names from the same topic. -->
+            {#key reel[cardIndex]?.proposalId}
               <div class="anim-rise">
-                <ReelCard card={reel[cardIndex]!} />
+                <ReelCard
+                  card={reel[cardIndex]!}
+                  crowned={reel[cardIndex]!.proposalId === crowned}
+                />
               </div>
             {/key}
           </div>
@@ -339,13 +351,19 @@
                 ‹
               </button>
               <div class="flex flex-1 flex-wrap items-center justify-center gap-1.5">
-                {#each reel as c, i (c.round)}
-                  <span
-                    class="h-2 w-2 rounded-[var(--radius-pill)] border border-near-black"
-                    class:bg-ink-black={i === cardIndex}
-                    class:bg-paper-white={i !== cardIndex}
-                  ></span>
-                {/each}
+                {#if reel.length <= MAX_DOTS}
+                  {#each reel as c, i (c.proposalId)}
+                    <span
+                      class="h-2 w-2 rounded-[var(--radius-pill)] border border-near-black"
+                      class:bg-ink-black={i === cardIndex}
+                      class:bg-paper-white={i !== cardIndex}
+                    ></span>
+                  {/each}
+                {:else}
+                  <span class="tabular font-ui text-body-sm font-semibold text-slate-gray">
+                    {cardIndex + 1} / {reel.length}
+                  </span>
+                {/if}
               </div>
               <button
                 class="min-h-11 min-w-11 rounded-[var(--radius-button)] border-2 border-ink-black bg-paper-white px-3 font-ui text-body font-bold"

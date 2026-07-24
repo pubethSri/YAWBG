@@ -331,16 +331,12 @@ describe("M4 game log", () => {
             round: 1,
             topicText: "คนที่รวย",
             drawnNumbers: [12],
-            entries: [
-              {
-                proposalId: "p1",
-                playerId: "p1",
-                playerName: "ริว",
-                name: "สมชาย",
-                outcome: "withdrawn",
-                cheers: 3,
-              },
-            ],
+            proposalId: "p1",
+            playerId: "p1",
+            playerName: "ริว",
+            name: "สมชาย",
+            outcome: "withdrawn",
+            cheers: 3,
           },
         ],
       },
@@ -358,7 +354,8 @@ describe("M4 game log", () => {
     expect(JSON.parse(row.results).boards[0].cells[0].name).toBe("สมชาย");
     // The reel needs no column of its own: it rides inside the same unredacted
     // `results` payload that already carries stage-gated `boards`.
-    expect(JSON.parse(row.results).reel[0].entries[0].cheers).toBe(3);
+    expect(JSON.parse(row.results).reel[0].cheers).toBe(3);
+    expect(JSON.parse(row.results).reel[0].name).toBe("สมชาย");
     db.close();
   });
 });

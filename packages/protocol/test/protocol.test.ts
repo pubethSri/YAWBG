@@ -98,8 +98,8 @@ describe("PublicRoomState", () => {
 
   // Asserted as a literal on purpose: bumping the version has to be a deliberate
   // act that fails this test, not something that rides along with a schema edit.
-  test("PROTOCOL_VERSION is 4", () => {
-    expect(PROTOCOL_VERSION).toBe(4);
+  test("PROTOCOL_VERSION is 5", () => {
+    expect(PROTOCOL_VERSION).toBe(5);
   });
 
   test("cellIndex out of range rejected", () => {
@@ -135,29 +135,29 @@ describe("PublicRoomState", () => {
             locks: [{ playerId: "p1", name: "Gordon Ramsay", cellIndex: 0 }],
           },
         ],
+        // One card per name; two proposals in the same round repeat its setup.
         reel: [
           {
             round: 1,
             topicText: "A millionaire",
             drawnNumbers: [12],
-            entries: [
-              {
-                proposalId: "p1",
-                playerId: "p1",
-                playerName: "Ryu",
-                name: "Gordon Ramsay",
-                outcome: "locked",
-                cheers: 2,
-              },
-              {
-                proposalId: "p2",
-                playerId: "p2",
-                playerName: "สมชาย",
-                name: "นโปเลียน",
-                outcome: "withdrawn",
-                cheers: 0,
-              },
-            ],
+            proposalId: "p1",
+            playerId: "p1",
+            playerName: "Ryu",
+            name: "Gordon Ramsay",
+            outcome: "locked",
+            cheers: 2,
+          },
+          {
+            round: 1,
+            topicText: "A millionaire",
+            drawnNumbers: [12],
+            proposalId: "p2",
+            playerId: "p2",
+            playerName: "สมชาย",
+            name: "นโปเลียน",
+            outcome: "withdrawn",
+            cheers: 0,
           },
         ],
       },

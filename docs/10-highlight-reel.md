@@ -1,8 +1,10 @@
 # 10 — The highlight reel & cheers
 
-**Status: built (2026-07-24), both slices, at `PROTOCOL_VERSION` 4.** Designed
+**Status: built (2026-07-24), both slices, at `PROTOCOL_VERSION` 5.** Designed
 2026-07-23; implemented in one session rather than two, so `round.cheer` was
-never actually live-in-schema-only. This doc owns the reel's layout, the cheer
+never actually live-in-schema-only. **Decision 3 was reversed the same day**,
+after a full table's card proved unreadable: a card is now one *name*, not one
+round, and that reshaped `ReelCard` (v4 → v5). This doc owns the reel's layout, the cheer
 mechanic and the protocol they need; `07-design-system.md` still owns every
 token and `03-protocol.md` carries the wire shapes this doc specifies. See the
 **implementation postscript** at the end for what the build changed and what it
@@ -14,7 +16,7 @@ playtest (`04-roadmap.md`'s ledger).
 A fourth results stage. After the boards reveal, the display and every phone
 land on a screen that says *"Wanna play more?"* (host) or *"Waiting for the
 host…"* (everyone else) — and in the middle of it, a card rotates every few
-seconds showing **one round's topic and the names people proposed for it**.
+seconds showing **one round's topic and one name somebody proposed for it**.
 
 The point is the pairing. A topic and a name that should never have been said
 together is the funniest artifact the game produces, and right now the game
@@ -73,32 +75,59 @@ fits the topic" — the precise meaning the design must not carry. "Cheer" is
 applause for a bit that landed. It can be given to a name that was obviously
 wrong for the topic, which is the entire joke.
 
-## Decision 3 — a card is a **round**, not a pairing
+## Decision 3 — a card is a **pairing**: one name, by one person
 
-The unit is one round: the topic is the setup, the names are the payoff.
+**Reversed 2026-07-24, after seeing a full table's card on a real screen.** The
+original decision made the card a *round* carrying every name proposed in it;
+what that produced at twelve players was twelve rows shrinking toward an 14 px
+floor with "+6 more" underneath — the joke was on screen and unreadable, which
+is the one failure a reel cannot have. The reasoning that was wrong is kept
+below, because the objection it raised is still live.
+
+The unit is one **proposal**: the topic is the setup, one name is the punchline,
+and the proposer is who said it out loud. A round that produced five names
+produces five cards that repeat its topic — the setup is *meant* to be re-read
+with each new punchline, and it means a card always stands alone when the loop
+brings it back around.
 
 ```
         ┌─────────────────────────────────────┐
-        │  ROUND 4  ·  17, 42                 │
-        │                                     │
-        │  “A person who has cried on screen” │   ← Game voice, large
-        │                                     │
-        │   Gordon Ramsay        Ann   ★★★    │   ← crowned entry
-        │   สมชาย                 Bee  WITHDRAWN │
-        │   Napoleon             Chai         │
+        │  ROUND 4   17  42                   │
+        │  “A person who has cried on screen” │   ← Game voice, the setup
+        │   ┌───────────────────┐             │
+        │   │  Gordon Ramsay    │      ✷ 8    │   ← speech bubble; crowned
+        │   └──▼────────────────┘             │
+        │     (Ann)  LOCKED IT                │   ← proposer + outcome
         └─────────────────────────────────────┘
 ```
 
-Rejected alternative: one card per (topic, name) pairing, ranked globally by
-cheers. It reads as a leaderboard, and a leaderboard of jokes is the thing the
-"no judging" pillar is nervous about. Grouping by round also means the card
-still works with zero cheers — it degrades to "here's what round 4 produced",
-which is exactly the reel's first half.
+The speech bubble is not decoration: `07` assigns it to "proposal on stage —
+*Nok proposes Gordon Ramsay*", which is exactly what a card now is. Its tail
+points down at the proposer's badge, so the card reads as that person saying
+that name without a word of connective copy.
 
-**Entries sort by cheers descending, then by the order they were proposed.** An
-entry is *crowned* (starburst, per `07`'s sticker vocabulary) only when it has
-at least one cheer **and** is a strict maximum on that card — no crown for a
-three-way tie at one cheer, which would be noise rather than a verdict.
+**The objection this originally lost to, and where it stands.** One card per
+pairing ranked globally by cheers reads as a leaderboard, and a leaderboard of
+jokes is what the "no judging" pillar is nervous about. That risk is real and is
+now *accepted*, on two grounds. First, the reel is a **sequence, not a list**:
+the TV shows one card at a time and the phone swipes one at a time, so no two
+cards are ever side by side, and no card carries a rank number. Second, the old
+format was already ordering by cheers and already crowning a winner — the change
+moves the ranking from "which round led" to "which name led", which is a
+smaller step than it looks. **What would cross the line is showing a position**
+("#1 of 15") or listing cards in a grid; neither is built, and neither should
+be.
+
+The zero-cheer case still works, which was the other half of the original
+argument: a card with no cheers is "Ann said Gordon Ramsay for *a person who has
+cried on screen*", which is a complete joke on its own.
+
+**Cards sort by cheers descending, then by a stable hash.** Exactly one card in
+the reel is *crowned* (starburst, per `07`'s sticker vocabulary), and only when
+it has at least one cheer **and** is a strict maximum across the whole reel — no
+crown for a three-way tie at one cheer, which would be noise rather than a
+verdict. Every other card with cheers shows a plain outlined `★ n` chip, so the
+crown stays the single loud thing on the screen.
 
 ## Decision 4 — the cheer window is the whole round
 
@@ -187,22 +216,27 @@ than solving one.
   of tilt; `transform`/`opacity` only, one moving thing on screen, and the
   keyframes end on the resting state so `prefers-reduced-motion` collapses to an
   instant swap that lands identically (`07`).
-- **Phone:** a swipeable stack with the same order, plus dots. No auto-advance —
-  a phone that flips cards while you are reading one is hostile, and it would
+- **Phone:** a swipeable stack with the same order, plus arrows. No auto-advance
+  — a phone that flips cards while you are reading one is hostile, and it would
   drift out of step with the TV within a minute the same way the round countdown
   does.
+- **Position indicator:** dots up to 12 cards, a plain `n / N` counter beyond
+  that. One name per card means a full table produces dozens, and a row of forty
+  dots is unreadable on a phone and invisible across a room.
 
-**Card order is a pure function of the payload**, so every surface agrees on the
-sequence even when they are on different cards:
+**Card order is decided by the server** and shipped pre-sorted, so every surface
+walks one sequence even when they are on different cards:
 
 ```
-sort by  (max cheers on the card) DESC,
-then by  fnv1a(topicText + round) ASC
+sort by  cheers DESC,
+then by  fnv1a(proposalId) ASC
 ```
 
-With cheers, the funniest round leads — right for a looping idle screen, where
-the first thing a newcomer sees should be the best one. With no cheers at all
-the first key is constant and the hash gives a stable shuffle, which is the
+`proposalId` is unique within a game, so the tiebreak is total and no two cards
+can compare equal. With cheers, the best-loved name leads — right for a looping
+idle screen, where the first thing a newcomer sees should be the best one. With
+no cheers at all the first key is constant and the hash gives a stable shuffle,
+which is the
 "pick a random round" behaviour the reel needs in its first half. One rule
 serves both halves.
 
@@ -272,8 +306,17 @@ interface PrivateBoard {
 
 ### Changed: `ResultsPayload` gains the reel
 
+`ReelEntry` existed in the v4 draft, when a card held a list. Decision 3's
+reversal folded it into `ReelCard` and deleted it, at `PROTOCOL_VERSION` **5**.
+
 ```ts
-interface ReelEntry {
+interface ReelCard {
+  // The setup — repeated across every card of the same round, by design.
+  round: number;
+  topicText: string;
+  drawnNumbers: number[];
+
+  // The punchline — one name, by one person.
   proposalId: string;
   playerId: string;
   playerName: string;        // carried, not looked up — see edge cases
@@ -282,19 +325,12 @@ interface ReelEntry {
   cheers: number;
 }
 
-interface ReelCard {
-  round: number;
-  topicText: string;
-  drawnNumbers: number[];
-  entries: ReelEntry[];
-}
-
 interface ResultsPayload {
   revealStage: 0 | 1 | 2 | 3;   // ③ = the reel
   winners: string[];
   boards: ResultsBoard[];       // [] until stage ①
   roundHistory: RoundHistoryEntry[];
-  reel: ReelCard[];             // NEW — [] until stage ③
+  reel: ReelCard[];             // NEW — [] until stage ③, server-sorted
 }
 ```
 
@@ -344,7 +380,7 @@ interface ProposalRecord {
 ```
 
 Kept for the whole game, keyed by round. `cheeredBy.size` becomes
-`ReelEntry.cheers` at stage ③ and nowhere else — the set itself never goes on
+`ReelCard.cheers` at stage ③ and nowhere else — the set itself never goes on
 the wire, so who cheered what is never published. That is deliberate: cheering
 should cost nothing socially.
 
@@ -363,11 +399,12 @@ a session; this is a new thing to forget.
 | Case | Behaviour |
 |---|---|
 | A round where everyone passed | No proposals, so **no card**. A topic with no names is not a joke |
-| Game ends after one round | One card, no rotation, dots hidden |
+| Game ends after one round | As many cards as that round had names; a single card means no rotation and no dots |
 | Every card has zero cheers | Order falls back to the stable hash shuffle; no crowns anywhere |
 | A player was removed mid-game (grace expiry) | The entry still renders — `playerName` is carried on the entry rather than looked up in `players`, precisely because the player may no longer be there |
-| 12 players all proposing on one card | Entries scale their type down to a floor, then cap with "+N more" — the same rule settled for the display's stage-① roast grid |
+| 12 players all proposing in one round | **Twelve cards**, not one crowded card — this is what reversed decision 3. The type never shrinks to fit a list, because there is no list |
 | Thai names and topics | Same wrap and grapheme rules as everywhere; verify ascenders on the card at display sizes |
+| A round with many names | Each gets its own card, so the reel gets long. Position shows as `n / N` past 12 cards rather than a row of dots |
 | Reconnect mid-round | `cheeredProposalIds` arrives on the private frame, so the toggles restore. This is why it is not client-local |
 | A player cheers, then the proposer withdraws | The cheer stands. This is the feature, not a leak |
 
@@ -389,10 +426,12 @@ a session; this is a new thing to forget.
   accepted / self-cheer rejected / cheer on a previous round's proposal rejected
   / cheer survives withdrawal / `reel` is `[]` below stage ③ and populated at ③ /
   `playAgain` clears the records.
-- `document.documentElement.scrollHeight === clientHeight` on the display at
-  1920×1080, 1920×900 and 1366×768, on every card in the reel — the card is a
-  new full-height object on a screen that never scrolls, and a long card with 12
-  entries is exactly the shape that has broken this twice before.
+- On the display at 1920×1080, 1920×900 and 1366×768, on every card in the
+  reel: `document.documentElement.scrollHeight === clientHeight`, **and** the
+  card's own rect inside the viewport, **and** every descendant's rect inside
+  the card's. The page assertion alone is not enough — the screen is
+  `overflow-hidden`, so it reported `true` while a card ran 63 px off the
+  bottom.
 
 ### Manual test — numbered steps
 
@@ -411,13 +450,16 @@ a session; this is a new thing to forget.
    on the host's phone and "Waiting for the host…" on the others.
 5. Confirm **Play again** appears here and *not* on stage ②, and that **Share**
    is still reachable on both.
-6. Confirm the withdrawn name appears on its round's card with a **WITHDRAWN**
-   stamp, and that the locked names carry their violet lock tags.
-7. Confirm the round where everyone passed has **no card**.
+6. Confirm the withdrawn name gets **its own card** with a **WITHDRAWN** stamp,
+   and that locked names carry their violet **LOCKED IT** tag.
+7. Confirm the round where everyone passed has **no card**, and that a round
+   with several names produced **one card each**, all repeating that round's
+   topic and numbers.
 8. Watch the display for a full loop. Cards change every ~10 s and the sequence
    repeats.
 9. On a phone, swipe through the cards. Confirm the **order matches the
-   display's**, even though the phone is on a different card.
+   display's**, even though the phone is on a different card, and that the
+   position reads as dots (≤ 12 cards) or `n / N` (more).
 10. Set a topic and a proposal in **Thai**. Confirm the card renders Thai glyphs
     without clipping ascenders, at display sizes and on the phone.
 11. Enable **reduced motion** and repeat step 8. Cards still change every ~10 s;
@@ -445,8 +487,9 @@ a session; this is a new thing to forget.
     devtools. The server must reject it.
 20. At results, confirm cheer counts are **absent** from the payload at stages
     ⓪–② (check the network frame, not just the render) and present at ③.
-21. Confirm the card with the most-cheered name leads the reel, and that its top
-    entry is crowned. Confirm a card whose top two entries tie has **no** crown.
+21. Confirm the most-cheered name leads the reel and is the **only** card with a
+    starburst; every other cheered card shows a plain outlined `★ n`. Confirm a
+    two-way tie at the top leaves **no** crown anywhere.
 22. Play a second game with **Play again**. Confirm no cheers, cards or
     proposals from the first game survive into the second.
 
@@ -458,9 +501,9 @@ a session; this is a new thing to forget.
 24. With the game still on the open floor, confirm the cheer control on the
     stage strip is **disabled** while the name on stage is your own, and that
     the same is true for your own row in the "This round" sheet.
-25. On the display, watch a card with **more entries than fit** (12 players all
-    proposing is the case to force). Confirm it ends with "+N more" rather than
-    running off the bottom, and that no entry is half-cut at the card's edge.
+25. With 12 players all proposing in one round, confirm the reel has **twelve
+    cards** for it rather than one crowded card, that each is readable from
+    across the room, and that they carry the same topic and numbers.
 
 ## Implementation postscript (2026-07-24)
 
@@ -489,17 +532,24 @@ What the build learned, beyond what the design said.
   `none`.** The card's `max-h-full` silently did nothing while its wrapper was
   centred (and therefore content-sized), which is what let the overflow above
   happen. The wrapper stretches to a definite height and centres *inside* itself.
-- **The display cap is 6 entries, the phone's is 9**, because the constraints
-  differ: the phone card sits in a page that scrolls and only has to stay
-  readable. Type shrinks first, "+N more" second, clipping never.
 - **`app.ts` routes intents by an explicit `case` list with no `default`**, so a
   new intent that is schema-valid but unlisted is silently dropped — no error,
   no broadcast, and the client just sees nothing happen. `round.cheer` hit this.
   Worth knowing before adding the next intent.
+- **The fix for a cramped card was a smaller card, not smaller type.** The first
+  build answered "twelve names don't fit" with a shrinking type ramp, a 6-entry
+  cap and a "+N more" tail — three mechanisms, all of them ways of apologising
+  for the format. Making the card one name deleted all three: no cap, no
+  overflow tail, no dense tier, and the name became the biggest thing on the
+  screen instead of the smallest. See decision 3.
 
-Verified by measurement at build time: both cards (12-entry and 3-entry) at
-1920×1080, 1920×900 and 1366×768 — no page scroll, card rect inside the
-viewport, every rendered entry inside the list. Cheer toggles verified through
-the real UI including the disabled self-cheer, cheer-survives-withdrawal, and
+Verified by measurement after the decision-3 reversal: a 15-card reel from a
+12-player game, at 1920×1080, 1920×900 and 1366×768, across rotations — no page
+scroll, the card's rect inside the viewport, and **zero descendants overflowing
+the card's box** on every card measured. The crowned card renders the starburst
+and no plain chip; the rest render `★ n`. Cheer toggles verified through the
+real UI including the disabled self-cheer, cheer-survives-withdrawal, and
 restoration after a full page reload. Server-side coverage is in
-`apps/server/test/reel.test.ts`.
+`apps/server/test/reel.test.ts`, whose ordering test asserts a round-3 card
+landing *between* two round-1 cards — an order per-round grouping could not
+produce.
