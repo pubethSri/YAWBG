@@ -13,11 +13,45 @@ from JSON, so a public build needs no deck UI at all.
 **Part of M5 was pulled ahead of M4** (2026-07-23): the display Stage's cohesion
 pass and a new global canvas texture were designed before the results reveal
 exists, because the TV is what a playtest audience actually stares at and M3
-shipped it structurally sound but visually sparse. The design is settled and
-written down — `07-design-system.md` (the texture) and `09-display-stage.md`
-(the Stage layout) — but **not built**. M4 still comes next in build order; the
-implementer takes `09` whenever the polish slot opens. The rest of M5 (motion
-pass, player-view responsive, PWA manifest) is untouched and stays in M5.
+shipped it structurally sound but visually sparse. Both are now **built** —
+`07-design-system.md` (the texture) and `09-display-stage.md` (the Stage
+layout). The rest of M5 (motion pass, player-view responsive, PWA manifest)
+stays in M5 and resumes after M5.5.
+
+## Exit-test ledger
+
+Milestones are marked done when their **code** is built and verified. Several
+exit tests are deliberately *not* satisfiable that way, and they are piling up
+on one event rather than blocking the build — this table is so nobody
+mistakes an unrun exit test for an unfinished milestone.
+
+Three tiers of verification, and they are not interchangeable:
+
+1. **Scriptable** — `bun test`, `bun run check`, DOM/pixel assertions. Run by
+   whoever builds the thing.
+2. **Solo manual pass** — a human following written numbered steps, alone.
+   Establishes that a surface *works and reads correctly*.
+3. **Playtest** — the friend group, in one room, playing a real game. The only
+   thing that can settle an exit test phrased as an observation about a room.
+
+| Milestone | Exit test | Status |
+|---|---|---|
+| M3 | "the room groans at a House hit without anyone explaining the screen" | ⏳ needs a playtest |
+| M4 | "a board screenshot gets posted to the group chat unprompted" | ⏳ needs a playtest |
+| M5 | "looks deliberate on a phone, a tablet and a laptop; nothing looks like a placeholder" | ⏳ partly judgeable solo, but M5 is not finished — responsive and PWA are outstanding |
+| M5.5 | "the room keeps watching after the game is over, and somebody says 'wait, go back to that one'" | ⏳ needs a playtest |
+| M6 | "friends play a full game on the public URL with nobody from the build team in the room" | ⏳ **this *is* the playtest** |
+
+**`09-display-stage.md`'s 25-step manual test passed on 2026-07-24** — tier 2,
+solo. It is evidence that the Stage is correct, and it is *not* evidence for
+M3's exit test, which is about how a room reacts. Do not fold one into the
+other; the whole reason M3 shipped the display styled was to make the eventual
+playtest produce feedback about the game rather than about rough edges, and
+that only pays off if the playtest actually happens.
+
+The honest sequencing: **M5 makes it look finished, M5.5 gives it an ending,
+M6 ships it, and all five verdicts land in the same session.** If a playtest
+happens sooner, fold the observations in early.
 
 ## Design runway (now, before/alongside M0)
 

@@ -196,7 +196,16 @@ M4 notes for future sessions:
   since a locked cell leaves the `[role="button"]` set and shifts every index
   after it.
 
-M5 notes (slice 1 — display Stage + tabletop texture, built 2026-07-23):
+M5 notes (slice 1 — display Stage + tabletop texture, built 2026-07-23;
+`docs/09`'s 25-step manual test passed 2026-07-24):
+
+- **Verification has three tiers here and they are not interchangeable:**
+  scriptable checks (you run them), a *solo* manual pass against written steps
+  (the user, alone — proves a surface works and reads right), and a **playtest**
+  with the friend group (the only thing that settles an exit test phrased as an
+  observation about a room). The 25-step pass is tier 2. It is not evidence for
+  M3's exit test. `docs/04` has the ledger of which verdicts are still
+  outstanding — four of them, all landing at the M6 playtest.
 
 - **The Stage's "auto" House column is a container query, not `auto`.** CSS
   sizes a grid track before the item's height exists, so a literal

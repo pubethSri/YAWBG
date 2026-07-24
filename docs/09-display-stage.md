@@ -223,6 +223,12 @@ texture". Summary for implementers:
 
 ### Manual test — numbered steps
 
+> **Run 2026-07-24: all 25 steps pass.** Solo, at a desk — a functionality and
+> legibility pass, explicitly *not* a playtest. It establishes that the Stage
+> works and reads correctly; it says nothing about whether the game is fun with
+> a room full of people, which is what M3's and M5's exit tests actually
+> measure. See `04-roadmap.md`'s exit-test ledger.
+
 Run on a real display if possible; a browser at the stated sizes otherwise.
 Serve over the LAN IP, not `localhost`, or the QR points a scanning phone at
 itself.

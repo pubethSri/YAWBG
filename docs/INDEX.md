@@ -51,9 +51,15 @@ early: M3 display → M4 results → M5 polish & responsive → M5.5 reel → M6
 rather than waiting for M5 — see the note at the top of that milestone.
 
 M5's first slice — the display Stage rebuild and the global tabletop texture,
-designed ahead of time in `09` — is **built** (2026-07-23). Outstanding in M5:
-the cohesion audit, the motion pass, the player-view responsive pass and the
-PWA. `PROTOCOL_VERSION` is **3**.
+designed ahead of time in `09` — is **built** (2026-07-23), and `09`'s 25-step
+manual test **passed** (2026-07-24, solo). Outstanding in M5: the cohesion
+audit, the motion pass, the player-view responsive pass and the PWA.
+`PROTOCOL_VERSION` is **3**.
+
+Several milestones are code-complete with their **exit tests still unjudged**,
+because those tests describe how a room of people reacts. `04-roadmap.md` has
+an **exit-test ledger** tracking all of them; they land together at the M6
+playtest. A solo manual pass is not a substitute for one.
 
 **M5.5 was inserted** (2026-07-23) between polish and ship: a fourth results
 stage that replays each round's topic beside every name proposed for it, plus a
