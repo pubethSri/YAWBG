@@ -104,6 +104,14 @@ Mobile browsers kill sockets constantly. Stolen from *ito* verbatim:
 `Map<wsId, { roomCode, playerId | 'display' }>` at module level, same as *ito*.
 Heartbeat ping/pong to detect dead sockets faster than TCP timeouts.
 
+**`wsId` must be read through `app.ts`'s `socketId(ws)` helper, never as
+`ws.id`.** Elysia hands `open`, `message` and `close` its `ElysiaWS` wrapper
+(which has `.id`) but hands `pong` Bun's raw `ServerWebSocket` (which does not —
+the id is at `.data.id`). Reading `.id` in `pong` silently yielded `undefined`,
+so the liveness map never updated and the heartbeat closed every socket on
+schedule; clients reconnected and it passed for network flakiness until
+2026-07-24. Both maps on this socket go through the helper now.
+
 ## Client model
 
 - Thin renderer: hold latest `PublicRoomState` + own `PrivateBoard` in runes

@@ -46,14 +46,23 @@ manual test has not been run yet. The one rule to keep holding:
   `docs/01`, `docs/03` invariant 14 and `docs/10` all say this; don't relax it
   in one of them.
 
-**Known pre-existing bug, found while verifying M5.5 and NOT fixed:** the
-server's heartbeat closes *every* WebSocket ~78 s after it connects, healthy or
-not (`heartbeatMs * 2.5`, clean code 1000). `app.ts` pings but `lastPong` never
-advances, so the liveness check always expires. Real clients paper over it —
+**Heartbeat bug, found while verifying M5.5 and now fixed (2026-07-24).** The
+server had been closing *every* WebSocket ~78 s after it connected, healthy or
+not. **Elysia does not pass the same object to every ws handler**: `open`,
+`message` and `close` get its `ElysiaWS` wrapper, which carries `.id`, but
+**`pong` gets Bun's raw `ServerWebSocket`**, where the id lives at `.data.id`
+and `.id` is `undefined`. So every `live.get(ws.id)` in `pong` missed,
+`lastPong` never advanced past connect time, and the `heartbeatMs * 2.5`
+liveness check expired for everyone on schedule. Real clients hid it —
 `socket.svelte.ts` retries after 2 s and `session.resume` reclaims the seat — so
-games do keep working, which is why M2–M5 never noticed. But it means every
-phone and every display reconnects every ~78 s all game long, and it will look
-like flakiness at the M6 playtest over real phone networks. Fix before M6.
+games kept working and it read as ordinary network flakiness for four
+milestones. All id lookups now go through `socketId(ws)` (`ws.id ?? ws.data?.id`)
+so no call site has to know which shape it got. `apps/server/test/heartbeat.test.ts`
+is the only suite that runs with the heartbeat **on** (every other passes
+`heartbeatMs: 0`, which is why nothing caught this); it covers both halves — a
+healthy idle socket surviving, and a genuinely silent one still being reaped via
+a raw TCP client that completes the upgrade and then never pongs, since a
+conforming `WebSocket` always answers a ping and cannot fake a half-open socket.
 
 M1 notes that still hold: pool distribution uses a round-robin *offset* — each
 player's whole K-name block rotates to exactly one other player, not a full
@@ -289,9 +298,11 @@ M5.5 notes (the highlight reel & cheers, built 2026-07-24):
   **without consuming the backlog**, so a test that has only read public frames
   has a stack of stale private ones queued. `flush()` + `state.request` is how
   `reel.test.ts` reads a *current* private frame.
-- Driving games from raw WebSockets in the browser: the sockets die at ~78 s to
-  the heartbeat bug above, and the room follows 120 s later. A driver has to
-  re-`session.resume` its seats on a timer, or the room vanishes mid-run.
+- Driving games from raw WebSockets in the browser used to need a
+  re-`session.resume` keepalive, because the sockets died at ~78 s to the
+  heartbeat bug and the room followed 120 s later. Fixed now — but a
+  *backgrounded* tab still suspends its renderer, so front the Browser pane for
+  any scripted driver, exactly as the M4 notes say.
 
 The stack is Bun workspaces + Elysia server + Svelte 5 (runes) + Tailwind v4
 client + a shared `packages/protocol` zod package (see `docs/02-architecture.md`).

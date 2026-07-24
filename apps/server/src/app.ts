@@ -60,6 +60,24 @@ function pingSocket(ws: any): void {
   }
 }
 
+/**
+ * The socket's stable identity, whichever object Elysia hands us.
+ *
+ * `open`, `message` and `close` receive Elysia's `ElysiaWS` wrapper, which
+ * carries `.id`. **`pong` receives Bun's raw `ServerWebSocket`**, which does
+ * not — there the same id lives at `.data.id`. Reading `ws.id` in `pong`
+ * therefore yielded `undefined`, every `live.get()` missed, `lastPong` never
+ * advanced past the connect time, and the heartbeat closed *every* socket after
+ * `heartbeatMs * 2.5` regardless of health. Clients reconnected and resumed, so
+ * games kept working and it read as ordinary network flakiness for four
+ * milestones.
+ *
+ * Resolving it here rather than in the one broken handler is deliberate: the
+ * trap is that the handler signature is not uniform, and nothing about a call
+ * site tells you which shape it got.
+ */
+const socketId = (ws: any): string => ws.id ?? ws.data?.id;
+
 export function createApp(opts: AppOptions = {}) {
   const graceMs = opts.graceMs ?? 120_000;
   const heartbeatMs = opts.heartbeatMs ?? 30_000;
@@ -150,10 +168,10 @@ export function createApp(opts: AppOptions = {}) {
   app.ws("/ws", {
     idleTimeout: 3600,
     open(ws: any) {
-      live.set(ws.id, { ws, lastPong: Date.now() });
+      live.set(socketId(ws), { ws, lastPong: Date.now() });
     },
     pong(ws: any) {
-      const entry = live.get(ws.id);
+      const entry = live.get(socketId(ws));
       if (entry) entry.lastPong = Date.now();
     },
     message(ws: any, raw: unknown) {
@@ -170,7 +188,7 @@ export function createApp(opts: AppOptions = {}) {
         return void sendError(ws, "BAD_MESSAGE", "unknown or malformed intent");
       }
       const intent = parsed.data;
-      const session = sockets.get(ws.id);
+      const session = sockets.get(socketId(ws));
 
       // Displays are read-only spectators: any intent is an error.
       if (session && "role" in session) {
@@ -203,7 +221,7 @@ export function createApp(opts: AppOptions = {}) {
         case "room.create": {
           const room = manager.create();
           const player = room.addPlayer(intent.payload.playerName, ws);
-          sockets.set(ws.id, { code: room.code, playerId: player.id });
+          sockets.set(socketId(ws), { code: room.code, playerId: player.id });
           send(ws, {
             type: "session.created",
             payload: { code: room.code, playerId: player.id, token: player.token },
@@ -223,7 +241,7 @@ export function createApp(opts: AppOptions = {}) {
             return void sendError(ws, "ROOM_FULL", `room is full (${MAX_PLAYERS} players)`);
           }
           const player = room.addPlayer(intent.payload.playerName, ws);
-          sockets.set(ws.id, { code: room.code, playerId: player.id });
+          sockets.set(socketId(ws), { code: room.code, playerId: player.id });
           send(ws, {
             type: "session.created",
             payload: { code: room.code, playerId: player.id, token: player.token },
@@ -237,7 +255,7 @@ export function createApp(opts: AppOptions = {}) {
             return void sendError(ws, "ROOM_NOT_FOUND", `no room ${intent.payload.code}`);
           }
           room.addDisplay(ws);
-          sockets.set(ws.id, { code: room.code, role: "display" });
+          sockets.set(socketId(ws), { code: room.code, role: "display" });
           send(ws, { type: "room.state", payload: room.getPublicState() });
           break;
         }
@@ -253,16 +271,16 @@ export function createApp(opts: AppOptions = {}) {
           // Drop any earlier socket still mapped to this seat, so its (possibly
           // late) close can't call handleDisconnect on the freshly-resumed player.
           for (const [id, s] of sockets) {
-            if (id !== ws.id && "playerId" in s && s.playerId === player.id) {
+            if (id !== socketId(ws) && "playerId" in s && s.playerId === player.id) {
               sockets.delete(id);
             }
           }
-          sockets.set(ws.id, { code: room.code, playerId: player.id });
+          sockets.set(socketId(ws), { code: room.code, playerId: player.id });
           break; // resume() notifies everyone with the fresh state, including this socket
         }
         case "room.leave": {
           const { code, playerId } = session as { code: string; playerId: string };
-          sockets.delete(ws.id);
+          sockets.delete(socketId(ws));
           const room = manager.get(code);
           if (!room) return;
           room.removePlayer(playerId);
@@ -306,10 +324,11 @@ export function createApp(opts: AppOptions = {}) {
       }
     },
     close(ws: any) {
-      live.delete(ws.id);
-      const session = sockets.get(ws.id);
+      const id = socketId(ws);
+      live.delete(id);
+      const session = sockets.get(id);
       if (!session) return;
-      sockets.delete(ws.id);
+      sockets.delete(id);
       const room = manager.get(session.code);
       if (!room) return;
       if ("role" in session) {
