@@ -99,6 +99,22 @@ export const RoundPassIntentSchema = z.object({
   payload: z.object({}),
 });
 
+/**
+ * Applaud a name proposed *this* round — withdrawn ones included, which is the
+ * point (docs/10 decision 4: withdrawal is often the moment the joke lands).
+ *
+ * `on` is explicit rather than a toggle so the intent is idempotent: a retry
+ * after a flaky send can't silently un-cheer.
+ *
+ * Never your own proposal, and no count is public until `revealStage` 3 — a
+ * live tally would make the app the judge through the back door, which is the
+ * exact wall in docs/02 this mechanic clears by staying hidden.
+ */
+export const RoundCheerIntentSchema = z.object({
+  type: z.literal("round.cheer"),
+  payload: z.object({ proposalId: z.string().min(1), on: z.boolean() }),
+});
+
 // Host-only (★ in docs/03-protocol.md); enforcement lives in Room.handleIntent.
 export const RoundForceAdvanceIntentSchema = z.object({
   type: z.literal("round.forceAdvance"),
@@ -106,7 +122,8 @@ export const RoundForceAdvanceIntentSchema = z.object({
 });
 
 // Host-only (★ in docs/03-protocol.md); enforcement lives in Room.handleIntent.
-// Advances the synchronized reveal: ⓪ winners -> ① pool authorship -> ② boards.
+// Advances the synchronized reveal: ⓪ winners -> ① pool authorship -> ② boards
+// -> ③ the highlight reel, which is terminal and also holds Play again.
 // Carries no target stage — the server owns the sequence, so two hosts' taps
 // racing can never land the room on two different stages.
 export const ResultsAdvanceIntentSchema = z.object({
@@ -138,6 +155,7 @@ export const ClientIntentSchema = z.discriminatedUnion("type", [
   RoundConfirmIntentSchema,
   RoundWithdrawIntentSchema,
   RoundPassIntentSchema,
+  RoundCheerIntentSchema,
   RoundForceAdvanceIntentSchema,
   ResultsAdvanceIntentSchema,
   GamePlayAgainIntentSchema,

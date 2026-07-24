@@ -3,16 +3,23 @@
   import { socket } from "../socket.svelte";
   import { shareBoard, type ShareOutcome } from "../share";
   import HouseBoard from "./HouseBoard.svelte";
+  import ReelCard from "../ReelCard.svelte";
   import Starburst from "../Starburst.svelte";
 
   /**
    * The host-paced reveal (docs/05 locked decision 6): ⓪ winners → ① pool
-   * authorship roast → ② boards + share. Every phone and every display moves
-   * together on the host's tap — the roast is a shared moment, not a private
-   * scroll, so there is deliberately no "skip ahead" affordance here.
+   * authorship roast → ② boards + share → ③ the highlight reel. Every phone and
+   * every display moves together on the host's tap — the roast is a shared
+   * moment, not a private scroll, so there is deliberately no "skip ahead"
+   * affordance here.
    *
-   * The server withholds `results.boards` until stage ①, so stages ① and ② are
-   * genuinely unrenderable early rather than merely hidden.
+   * Stage ③ is the one exception to lock-step, and deliberately (docs/05): the
+   * room walks the reel at its own pace, because the TV auto-rotates and a
+   * phone that flipped cards while you were reading one would be hostile.
+   *
+   * The server withholds `results.boards` until stage ① and `results.reel`
+   * until stage ③, so every stage is genuinely unrenderable early rather than
+   * merely hidden.
    */
   let { roomState }: { roomState: PublicRoomState } = $props();
 
@@ -52,7 +59,46 @@
   // K = 0 means the server skips stage ① entirely, so the button has to promise
   // the stage the room will actually land on.
   const poolInPlay = $derived(roomState.settings.sabotageCells > 0);
-  const nextLabel = $derived(stage === 0 ? (poolInPlay ? "Who did this to you" : "The boards") : "The boards");
+  const nextLabel = $derived(
+    stage === 0 ? (poolInPlay ? "Who did this to you" : "The boards") : stage === 1 ? "The boards" : "The highlight reel",
+  );
+
+  // ── Stage ③: the reel ────────────────────────────────────────────────────
+  const reel = $derived(results?.reel ?? []);
+
+  let cardIndex = $state(0);
+
+  // Keyed on the reel's length rather than re-run per snapshot: `results` is a
+  // fresh object on every broadcast, so an effect reading it would reset the
+  // card the room is looking at every time anyone's socket so much as blinks.
+  let lastReelLength = 0;
+  $effect(() => {
+    if (reel.length !== lastReelLength) {
+      lastReelLength = reel.length;
+      cardIndex = 0;
+    }
+  });
+
+  const step = (by: number) => {
+    if (reel.length === 0) return;
+    cardIndex = (cardIndex + by + reel.length) % reel.length;
+  };
+
+  // Swipe, per docs/10 decision 7 — with the arrows below as the accessible and
+  // desktop-reachable path, the same way the board editor pairs drag with taps.
+  let touchX: number | null = null;
+  const SWIPE_PX = 40;
+
+  function onTouchStart(e: TouchEvent) {
+    touchX = e.changedTouches[0]?.clientX ?? null;
+  }
+
+  function onTouchEnd(e: TouchEvent) {
+    if (touchX === null) return;
+    const dx = (e.changedTouches[0]?.clientX ?? touchX) - touchX;
+    touchX = null;
+    if (Math.abs(dx) >= SWIPE_PX) step(dx < 0 ? 1 : -1);
+  }
 
   let sharing = $state(false);
   let shareNote = $state<string | null>(null);
@@ -257,6 +303,76 @@
         {/if}
       </div>
     {/if}
+
+    <!-- Stage ③ — the reel. Appended like every earlier stage rather than
+         replacing them: the results page is one growing artifact, and a player
+         who reaches Share late shouldn't have lost the boards to get here. -->
+    {#if stage >= 3}
+      <div class="anim-rise flex flex-col gap-3">
+        <h2 class="font-ui text-heading font-bold">The highlight reel</h2>
+        {#if reel.length > 0}
+          <!-- Swipe or arrows; no auto-advance. A phone that flipped cards while
+               you were reading one would be hostile, and it would drift out of
+               step with the TV within a minute the same way the round countdown
+               does — so the two surfaces deliberately don't try to agree on
+               *which* card, only on the order (docs/10 decision 7). -->
+          <div
+            role="group"
+            aria-label="Highlight reel"
+            ontouchstart={onTouchStart}
+            ontouchend={onTouchEnd}
+          >
+            {#key reel[cardIndex]?.round}
+              <div class="anim-rise">
+                <ReelCard card={reel[cardIndex]!} />
+              </div>
+            {/key}
+          </div>
+
+          {#if reel.length > 1}
+            <div class="flex items-center gap-3">
+              <button
+                class="min-h-11 min-w-11 rounded-[var(--radius-button)] border-2 border-ink-black bg-paper-white px-3 font-ui text-body font-bold"
+                aria-label="Previous card"
+                onclick={() => step(-1)}
+              >
+                ‹
+              </button>
+              <div class="flex flex-1 flex-wrap items-center justify-center gap-1.5">
+                {#each reel as c, i (c.round)}
+                  <span
+                    class="h-2 w-2 rounded-[var(--radius-pill)] border border-near-black"
+                    class:bg-ink-black={i === cardIndex}
+                    class:bg-paper-white={i !== cardIndex}
+                  ></span>
+                {/each}
+              </div>
+              <button
+                class="min-h-11 min-w-11 rounded-[var(--radius-button)] border-2 border-ink-black bg-paper-white px-3 font-ui text-body font-bold"
+                aria-label="Next card"
+                onclick={() => step(1)}
+              >
+                ›
+              </button>
+            </div>
+          {/if}
+        {:else}
+          <!-- A game nobody proposed in still lands here: stage ③ is also the
+               play-again screen, so it is never skipped. -->
+          <p class="font-ui text-body-sm text-slate-gray">
+            Nobody put a name on the floor this game. Next time.
+          </p>
+        {/if}
+
+        <p class="font-ui text-body-sm text-slate-gray">
+          {#if iAmHost}
+            Wanna play more?
+          {:else}
+            Waiting for the host…
+          {/if}
+        </p>
+      </div>
+    {/if}
   </div>
 
   <!-- Host pacing bar. Pinned, because the reveal is long and the control that
@@ -266,7 +382,7 @@
       class="fixed inset-x-0 bottom-0 border-t-2 border-ink-black bg-cream-blush p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
     >
       <div class="mx-auto max-w-md">
-        {#if stage < 2}
+        {#if stage < 3}
           <button
             class="w-full rounded-[var(--radius-button)] border-2 border-ink-black bg-paper-white px-4 py-3 font-ui text-body font-bold text-ink-black"
             onclick={() => socket.advanceReveal()}
@@ -274,6 +390,11 @@
             Next: {nextLabel}
           </button>
         {:else}
+          <!-- Play again lives on the reel, not on the boards: a host who is
+               ready in five seconds would otherwise end the game before anyone
+               saw the second card. Holding the button here makes the host stay
+               for exactly as long as the room is still laughing, with no timer
+               (docs/10 decision 1). -->
           <button
             class="w-full rounded-[var(--radius-button)] border-2 border-ink-black bg-paper-white px-4 py-3 font-ui text-body font-bold text-ink-black"
             onclick={() => socket.playAgain()}

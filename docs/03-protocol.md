@@ -51,12 +51,12 @@ ever declared outside the protocol package.**
 | `round.withdraw` | `{}` | Own proposal; name stays free; player may re-propose or pass this round |
 | `round.pass` | `{}` | Marks player resolved (= ready). Revocable until round advances? **No** — pass is final for the round (keeps advance logic simple) |
 | `round.forceAdvance` ★ | `{}` | Host skips unresolved players (they auto-pass); also auto-withdraws a stalled pending proposal |
-| `round.cheer` ✎ | `{ proposalId, on }` | Applaud any name proposed **this** round, withdrawn ones included. Never your own; at most one per (player, proposal); `on` is explicit so a retry is idempotent. **No count is public until `revealStage` 3** — see `10-highlight-reel.md` |
+| `round.cheer` | `{ proposalId, on }` | Applaud any name proposed **this** round, withdrawn ones included. Never your own; at most one per (player, proposal); `on` is explicit so a retry is idempotent. **No count is public until `revealStage` 3** — see `10-highlight-reel.md` |
 
-✎ marks a **designed, not yet implemented** intent (protocol v4). It is in the
-schema and rejected by `Room` until the reel milestone's second slice lands.
-The ★/✎ distinction matters: ★ means *host-only*, ✎ means *not live yet*.
-Assuming ★ meant "unimplemented" cost a session's planning time once already.
+★ means *host-only*, and nothing else: assuming it meant "unimplemented" cost a
+session's planning time once. There was briefly a second marker, ✎, for
+*designed but not live* — it covered `round.cheer` between the two M5.5 build
+slices. Both slices shipped together, so no intent in this table is ✎ today.
 
 Round auto-advances to the next `draw` when **every** player is resolved —
 including disconnected ones, who are treated as not-yet-resolved per the
@@ -238,13 +238,13 @@ interface ResultsPayload {
 12. `game.playAgain`: host-only, `results` phase only. Same seats, same
     settings, everything the round loop accumulated cleared → `board_fill`.
     From v4 that includes the per-round proposal records the reel is built from.
-13. ✎ `round.cheer`: `open_floor`/`last_call` only; the proposal must belong to
+13. `round.cheer`: `open_floor`/`last_call` only; the proposal must belong to
     the **current** round; never your own proposal; at most one cheer per
     (player, proposal). A cheer survives its proposal being withdrawn — that is
     the feature, not a leak. The `cheeredBy` set stays server-side: only its
     size ever ships, so who cheered what is never published and cheering costs
     nothing socially.
-14. ✎ **`revealStage` gates `reel` exactly as it gates `boards`.**
+14. **`revealStage` gates `reel` exactly as it gates `boards`.**
     `results.reel` is `[]` while `revealStage < 3`, on every socket including
     displays. The cheer tally is the surprise; leaking it early spoils the reel
     the way an early `boards` would spoil the authorship roast. **No cheer count

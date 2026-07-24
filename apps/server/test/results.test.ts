@@ -170,10 +170,13 @@ describe("M4 results.advance", () => {
       expect(cell.name.startsWith("host-pool-")).toBe(true);
     }
 
-    // Stage 2, then nowhere: the sequence is monotonic and finite.
+    // Stage 2, then 3, then nowhere: the sequence is monotonic and finite.
     g.host.send({ type: "results.advance", payload: {} });
     const s2 = await drainUntil(g.all, (x) => x.results!.revealStage === 2);
     expect(s2.results!.boards).toHaveLength(2);
+    g.host.send({ type: "results.advance", payload: {} });
+    const s3 = await drainUntil(g.all, (x) => x.results!.revealStage === 3);
+    expect(s3.results!.boards).toHaveLength(2);
     g.host.send({ type: "results.advance", payload: {} });
     await expectError(g.host, "WRONG_PHASE");
 
@@ -323,6 +326,23 @@ describe("M4 game log", () => {
           },
         ],
         roundHistory: [],
+        reel: [
+          {
+            round: 1,
+            topicText: "คนที่รวย",
+            drawnNumbers: [12],
+            entries: [
+              {
+                proposalId: "p1",
+                playerId: "p1",
+                playerName: "ริว",
+                name: "สมชาย",
+                outcome: "withdrawn",
+                cheers: 3,
+              },
+            ],
+          },
+        ],
       },
     });
 
@@ -336,6 +356,9 @@ describe("M4 game log", () => {
     // Thai survives the JSON column — the deck and the boards are both Thai-capable.
     expect(JSON.parse(row.players)[0].name).toBe("ริว");
     expect(JSON.parse(row.results).boards[0].cells[0].name).toBe("สมชาย");
+    // The reel needs no column of its own: it rides inside the same unredacted
+    // `results` payload that already carries stage-gated `boards`.
+    expect(JSON.parse(row.results).reel[0].entries[0].cheers).toBe(3);
     db.close();
   });
 });

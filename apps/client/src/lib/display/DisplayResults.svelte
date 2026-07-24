@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PublicRoomState } from "@yawbg/protocol";
   import HouseBoard from "../room/HouseBoard.svelte";
+  import ReelCard from "../ReelCard.svelte";
   import Starburst from "../Starburst.svelte";
 
   /**
@@ -35,6 +36,50 @@
         .filter((c) => c.authorId !== null),
     ),
   );
+
+  // ── Stage ③: the reel ────────────────────────────────────────────────────
+  const reel = $derived(results?.reel ?? []);
+
+  /** docs/10 decision 7: the TV rotates, the phone swipes. */
+  const ROTATE_MS = 10_000;
+
+  /**
+   * A lookup table rather than arithmetic, for the reason docs/09 records about
+   * the waiting-room chips: a formula reliably lands some index on exactly 0°,
+   * and one untilted card in a rotation of tilted ones reads as a bug.
+   * Neighbours never share a sign, so every change of card is a visible change
+   * of tilt even when the fade is collapsed by reduced motion.
+   */
+  const TILTS = [-2.5, 2, -1.5, 3, -2, 1.5];
+
+  let cardIndex = $state(0);
+
+  /**
+   * Armed on the reel's length, not re-run per snapshot. `results` is a fresh
+   * object on every `room.state` frame, so an effect that merely reads it would
+   * re-arm the interval on every broadcast — the same trap the round countdown
+   * hit, where re-arming per frame meant the clock never reached zero. Here it
+   * would mean the card never changed.
+   */
+  let armedFor = -1;
+  let rotateTimer: ReturnType<typeof setInterval> | null = null;
+
+  $effect(() => {
+    const n = reel.length;
+    if (n === armedFor) return;
+    armedFor = n;
+    cardIndex = 0;
+    if (rotateTimer) clearInterval(rotateTimer);
+    rotateTimer = null;
+    // One card doesn't rotate, and the dots hide themselves below.
+    if (n > 1) rotateTimer = setInterval(() => (cardIndex = (cardIndex + 1) % n), ROTATE_MS);
+  });
+
+  // Teardown only — kept out of the effect above so its cleanup can't cancel
+  // the interval that effect just armed.
+  $effect(() => () => {
+    if (rotateTimer) clearInterval(rotateTimer);
+  });
 </script>
 
 {#if results}
@@ -121,7 +166,7 @@
         <p class="font-ui text-d-body text-slate-gray">No pool names this game.</p>
       {/if}
     </div>
-  {:else}
+  {:else if stage === 2}
     <!-- ② Every board at once. Names are readable up close; the violet shape of
          a finished board is what reads from across the room. -->
     <div class="flex h-dvh flex-col gap-[1.5vh] overflow-hidden p-[3vw]">
@@ -169,6 +214,66 @@
           </div>
         {/each}
       </div>
+    </div>
+  {:else}
+    <!-- ③ The reel. One card at a time, auto-rotating — the room is done
+         playing and this is an idle screen it can keep watching, so it holds
+         one idea at the size the whole table can read rather than a grid. -->
+    <div class="flex h-dvh flex-col gap-[2vh] overflow-hidden p-[3vw]">
+      <div class="flex shrink-0 items-baseline gap-[2vw]">
+        <h1 class="font-game text-d-verdict font-bold leading-[1.1] text-ink-black">
+          The highlight reel
+        </h1>
+        <p class="font-ui text-d-body text-slate-gray">
+          Swipe through it on your phone · the host can start another game
+        </p>
+      </div>
+
+      {#if reel.length > 0}
+        <!-- min-h-0 so the card is bounded by the space left over rather than
+             by its own content: a 12-entry card is exactly the shape that has
+             pushed this screen past the viewport twice before, and the display
+             never scrolls. -->
+        <div class="flex min-h-0 flex-1 justify-center px-[4vw]">
+          {#key reel[cardIndex]?.round}
+            <!-- `h-full`, not `max-h-full`, and the outer row must NOT centre:
+                 the card's own `max-h-full` is a percentage, and a percentage
+                 max-height against an auto-height parent resolves to `none`.
+                 With `items-center` on the row this div shrank to its content,
+                 the cap silently stopped applying, and a 12-entry card ran 63 px
+                 past the bottom of a 1920×900 screen — invisibly, because the
+                 page is `overflow-hidden` and still reported no scroll.
+                 Stretching to a definite height here is what gives the cap
+                 something to resolve against; `items-center` below is what
+                 keeps a short card vertically centred. -->
+            <div class="anim-fade flex h-full w-full max-w-[70vw] items-center">
+              <ReelCard
+                card={reel[cardIndex]!}
+                variant="display"
+                tilt={TILTS[cardIndex % TILTS.length]}
+              />
+            </div>
+          {/key}
+        </div>
+
+        {#if reel.length > 1}
+          <div class="flex shrink-0 items-center justify-center gap-[0.6vw]">
+            {#each reel as c, i (c.round)}
+              <span
+                class="fill-transition h-[1.2vh] w-[1.2vh] rounded-[var(--radius-pill)] border-2 border-near-black"
+                class:bg-ink-black={i === cardIndex}
+                class:bg-paper-white={i !== cardIndex}
+              ></span>
+            {/each}
+          </div>
+        {/if}
+      {:else}
+        <!-- Never skipped, even with nothing to show: stage ③ is also the
+             play-again screen (docs/10 decision 1). -->
+        <div class="flex min-h-0 flex-1 items-center justify-center">
+          <p class="font-ui text-d-topic text-slate-gray">Nobody put a name on the floor.</p>
+        </div>
+      {/if}
     </div>
   {/if}
 {/if}

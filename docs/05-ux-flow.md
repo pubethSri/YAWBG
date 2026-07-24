@@ -43,7 +43,7 @@ state. One server hosts many concurrent rooms (see `02-architecture.md`,
 | `draw` | **Draw moment** | Not a separate screen: a short takeover animation on the round screen — number(s) roll in, House hits flash, topic slams down — then settles into the open floor |
 | `open_floor` | **Open floor** | Topic banner, own board, propose / confirm / withdraw / pass, proposal queue awareness, House status. *The other hard screen — see `06`* |
 | `last_call` | **Last call** | Open floor variant with "final round" framing. Only when `lastCall` on |
-| `results` | **Results sequence** | Staged reveal, in order: ① winners → ② pool authorship roast (when K > 0) → ③ full boards + lock tags + share-to-PNG → ④ **the highlight reel** + play again (host). Stage ④ is designed, not built — see `10-highlight-reel.md`. **These are 1-indexed; `revealStage` on the wire is 0-indexed**, so ④ is `revealStage === 3` |
+| `results` | **Results sequence** | Staged reveal, in order: ① winners → ② pool authorship roast (when K > 0) → ③ full boards + lock tags + share-to-PNG → ④ **the highlight reel** + play again (host). Stage ④ is built (M5.5) — see `10-highlight-reel.md`. **These are 1-indexed; `revealStage` on the wire is 0-indexed**, so ④ is `revealStage === 3` |
 
 ## Display states
 

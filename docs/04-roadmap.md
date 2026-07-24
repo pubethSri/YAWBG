@@ -241,9 +241,10 @@ has opinions about.
   crowd favourite. It gates nothing and scores nothing.
 - Game log persists the reel.
 
-Built at **`PROTOCOL_VERSION` 4**, once, in two slices: the reel first, cheers
-second. `round.cheer` ships in the schema and is rejected by `Room` until slice
-2 — `03-protocol.md` marks it ✎ for exactly that reason.
+**Built 2026-07-24 at `PROTOCOL_VERSION` 4**, both slices in one session, so
+`round.cheer` was never live-in-schema-only and `03-protocol.md` no longer
+carries the ✎ marker. `docs/10`'s 25-step manual test has **not** been run yet,
+and the exit test needs the playtest (see the ledger above).
 
 **Scope-wall note:** `02-architecture.md` bans in-app voting/judging. Cheers
 clear that wall because they decide nothing *and* are invisible while decisions

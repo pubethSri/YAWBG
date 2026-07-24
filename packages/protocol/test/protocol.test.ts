@@ -45,6 +45,7 @@ describe("intents", () => {
     { type: "round.confirm", payload: {} },
     { type: "round.withdraw", payload: {} },
     { type: "round.pass", payload: {} },
+    { type: "round.cheer", payload: { proposalId: "p7", on: true } },
     { type: "round.forceAdvance", payload: {} },
     { type: "results.advance", payload: {} },
     { type: "game.playAgain", payload: {} },
@@ -97,8 +98,8 @@ describe("PublicRoomState", () => {
 
   // Asserted as a literal on purpose: bumping the version has to be a deliberate
   // act that fails this test, not something that rides along with a schema edit.
-  test("PROTOCOL_VERSION is 3", () => {
-    expect(PROTOCOL_VERSION).toBe(3);
+  test("PROTOCOL_VERSION is 4", () => {
+    expect(PROTOCOL_VERSION).toBe(4);
   });
 
   test("cellIndex out of range rejected", () => {
@@ -134,9 +135,79 @@ describe("PublicRoomState", () => {
             locks: [{ playerId: "p1", name: "Gordon Ramsay", cellIndex: 0 }],
           },
         ],
+        reel: [
+          {
+            round: 1,
+            topicText: "A millionaire",
+            drawnNumbers: [12],
+            entries: [
+              {
+                proposalId: "p1",
+                playerId: "p1",
+                playerName: "Ryu",
+                name: "Gordon Ramsay",
+                outcome: "locked",
+                cheers: 2,
+              },
+              {
+                proposalId: "p2",
+                playerId: "p2",
+                playerName: "สมชาย",
+                name: "นโปเลียน",
+                outcome: "withdrawn",
+                cheers: 0,
+              },
+            ],
+          },
+        ],
       },
     };
     expect(PublicRoomStateSchema.parse(roundTrip(state))).toEqual(state);
+  });
+
+  test("a round snapshot carries withdrawn proposals but never a cheer count", () => {
+    const state: PublicRoomState = {
+      ...lobbyState,
+      phase: "open_floor",
+      round: {
+        number: 2,
+        drawnNumbers: [7, 19],
+        allDrawn: [3, 7, 19],
+        topic: { id: "t-1", text: "An assassin" },
+        queue: [{ id: "p3", playerId: "p1", cellIndex: 4, name: "Gordon Ramsay" }],
+        proposals: [
+          {
+            proposal: { id: "p2", playerId: "p1", cellIndex: 9, name: "สมชาย" },
+            outcome: "withdrawn",
+          },
+          {
+            proposal: { id: "p3", playerId: "p1", cellIndex: 4, name: "Gordon Ramsay" },
+            outcome: "live",
+          },
+        ],
+      },
+    };
+    expect(PublicRoomStateSchema.parse(roundTrip(state))).toEqual(state);
+    // The scope wall in docs/02 holds only while no tally is visible mid-round.
+    expect(JSON.stringify(state)).not.toContain("cheer");
+  });
+
+  test("an unknown proposal outcome is rejected", () => {
+    const bad = roundTrip({
+      ...lobbyState,
+      phase: "open_floor",
+      round: {
+        number: 1,
+        drawnNumbers: [7],
+        allDrawn: [7],
+        topic: null,
+        queue: [],
+        proposals: [
+          { proposal: { id: "p1", playerId: "p1", cellIndex: 0, name: "x" }, outcome: "rejected" },
+        ],
+      },
+    });
+    expect(PublicRoomStateSchema.safeParse(bad).success).toBe(false);
   });
 
   test("house board must have exactly 25 cells", () => {

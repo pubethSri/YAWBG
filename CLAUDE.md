@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: implementation started — M0 through M4 shipped, M5 in slices
+## Project status: implementation started — M0–M4 and M5.5 shipped, M5 in slices
 
 The design phase is complete (`docs/` holds the artifacts). **M0 — skeleton**,
 **M1 — lobby & board fill**, **M2 — core round loop**, **M3 — display &
@@ -34,26 +34,26 @@ fit** rather than clipping at large pools. There is currently not one responsive
 breakpoint utility in the whole client — that pass is greenfield, not a
 retro-fit, and `RoundScreen.svelte` (539 lines) is its biggest single item.
 
-**`docs/10-highlight-reel.md` is designed but NOT built, and it is what the next
-session builds** — ahead of M5's remaining slices, by decision (2026-07-23). It
-adds a fourth results stage (a rotating card pairing each round's topic with
-every name proposed for it, **withdrawn ones included**) plus a *cheer*
-mechanic. It is the first thing since M4 to change the wire:
-**`PROTOCOL_VERSION` 3 → 4**, once, for both build slices. Three things to know
-before touching it:
+**M5.5 — `docs/10-highlight-reel.md` — is BUILT** (2026-07-24, both slices in
+one session, `PROTOCOL_VERSION` **4**). It adds a fourth results stage (a
+rotating card pairing each round's topic with every name proposed for it,
+**withdrawn ones included**) plus the *cheer* mechanic. `docs/10`'s 25-step
+manual test has not been run yet. The one rule to keep holding:
 
 - **The hidden tally is a rule, not a presentation choice.** Cheers clear the
   "no in-app voting/judging" wall in `docs/02` only because no count is visible
   while any decision is live. Making it live would re-open the scope wall.
   `docs/01`, `docs/03` invariant 14 and `docs/10` all say this; don't relax it
   in one of them.
-- **`round.cheer` ships in the schema before it works.** `docs/03` marks it ✎
-  (designed, not live) as distinct from ★ (host-only), because assuming ★ meant
-  "unimplemented" cost a session's planning time at M4. Slice 1 is the reel with
-  every `cheers` at 0; slice 2 makes the intent do something.
-- **The proposal record is new server state that `resetForNewGame()` must
-  clear**, and it is exactly the kind of survivor that only breaks the *second*
-  game of a session.
+
+**Known pre-existing bug, found while verifying M5.5 and NOT fixed:** the
+server's heartbeat closes *every* WebSocket ~78 s after it connects, healthy or
+not (`heartbeatMs * 2.5`, clean code 1000). `app.ts` pings but `lastPong` never
+advances, so the liveness check always expires. Real clients paper over it —
+`socket.svelte.ts` retries after 2 s and `session.resume` reclaims the seat — so
+games do keep working, which is why M2–M5 never noticed. But it means every
+phone and every display reconnects every ~78 s all game long, and it will look
+like flakiness at the M6 playtest over real phone networks. Fix before M6.
 
 M1 notes that still hold: pool distribution uses a round-robin *offset* — each
 player's whole K-name block rotates to exactly one other player, not a full
@@ -248,6 +248,51 @@ M5 notes (slice 1 — display Stage + tabletop texture, built 2026-07-23;
   an exported PNG: dot centres are exactly `#f0d0a8`, and 0 mark pixels landed
   inside the 25 cells across 58k samples.
 
+M5.5 notes (the highlight reel & cheers, built 2026-07-24):
+
+- **`PROTOCOL_VERSION` is now 4.** `Proposal` gained `id` (server-assigned,
+  `p1`, `p2`, …; `(playerId, cellIndex)` is *not* safe — a player may withdraw
+  and re-propose the same cell in one round), `RoundState` gained `proposals[]`,
+  `PrivateBoard` gained `cheeredProposalIds`, `ResultsPayload` gained `reel[]`
+  and a fourth `revealStage`, plus the `round.cheer` intent.
+- **`app.ts` routes intents through an explicit `case` list with no `default`.**
+  A schema-valid intent that isn't listed is silently dropped — no error, no
+  broadcast, the client just sees nothing happen. `round.cheer` hit this and it
+  looked like a `Room` bug for a while. Add the case when you add an intent.
+- **The reel is sorted on the server**, not by each client. `docs/10` only asked
+  for "a pure function of the payload", which two implementations could satisfy
+  and still drift; `Room.buildReel()` ships `reel` pre-ordered so the
+  auto-rotating TV and the swiped phone walk one sequence by construction.
+- **The display reel card runs its own type unit, `--reel-u:
+  min(1vw, 1.78vh)`.** The global `--text-d-*` ramp is vw-driven on purpose, but
+  this card is a *vertical stack* on a screen that never scrolls — at 1920×900
+  the ramp gave it the same 72 px topic it uses at 1920×1080 with 180 px less
+  height. `1.78` is 1920/1080, so the unit is exactly 1vw at the design target
+  and falls back to height on anything shorter. Generalises the note above about
+  squares: on the display, anything *height-bound* needs both axes too.
+- **`overflow-hidden` hides an overflow; it does not prevent one.** A 12-entry
+  card ran 63 px past the bottom of a 1920×900 screen while
+  `scrollHeight === clientHeight` still reported `true`. The no-scroll assertion
+  is necessary and **not sufficient** — also assert the card's rect is inside
+  the viewport and the last entry's rect is inside the list's.
+- **A percentage `max-height` against an auto-height parent resolves to
+  `none`.** That is *why* the above happened: the card's `max-h-full` did
+  nothing while its wrapper was `items-center` and therefore content-sized. The
+  wrapper stretches to a definite height and centres inside itself.
+- Entry caps differ by surface — 6 on the display, 9 on the phone — because the
+  phone's page scrolls and only has to stay readable. Type shrinks first,
+  "+N more" second, clipping never.
+- **`resetForNewGame()` clears `proposalRecords` and `proposalSeq`.** Game two's
+  round 1 has the same round *number* as game one's, so a survivor surfaces
+  immediately on `round.proposals` — `reel.test.ts` asserts exactly that.
+- Test-harness trap: `TestClient.expectState()` skips `player.board` frames
+  **without consuming the backlog**, so a test that has only read public frames
+  has a stack of stale private ones queued. `flush()` + `state.request` is how
+  `reel.test.ts` reads a *current* private frame.
+- Driving games from raw WebSockets in the browser: the sockets die at ~78 s to
+  the heartbeat bug above, and the room follows 120 s later. A driver has to
+  re-`session.resume` its seats on a timer, or the room vanishes mid-run.
+
 The stack is Bun workspaces + Elysia server + Svelte 5 (runes) + Tailwind v4
 client + a shared `packages/protocol` zod package (see `docs/02-architecture.md`).
 
@@ -313,7 +358,7 @@ These recur across all docs and should shape any new design work:
 | `docs/07-design-system.md` | Visual language: colors, three-voice typography (EN+TH), shape, components |
 | `docs/08-deployment.md` | Ship recipe: shared VM + Caddy vhosts, TLS modes, compose, deploy flow |
 | `docs/09-display-stage.md` | Display Stage layout + the tabletop texture; built, with an implementation postscript |
-| `docs/10-highlight-reel.md` | **Next to build.** The results reel, the cheer mechanic, and the v4 protocol shapes |
+| `docs/10-highlight-reel.md` | The results reel, the cheer mechanic, the v4 protocol shapes; built, with an implementation postscript |
 | `decks/general.json` | The seed deck (60 topics), loaded into SQLite on boot |
 | `decks/general.example.json` | Schema reference — deliberately skipped by the seeder |
 

@@ -1,9 +1,13 @@
 # 10 — The highlight reel & cheers
 
-**Status: designed, not built.** Written in a design session (2026-07-23) for
-implementation in the next session. This doc owns the reel's layout, the cheer
+**Status: built (2026-07-24), both slices, at `PROTOCOL_VERSION` 4.** Designed
+2026-07-23; implemented in one session rather than two, so `round.cheer` was
+never actually live-in-schema-only. This doc owns the reel's layout, the cheer
 mechanic and the protocol they need; `07-design-system.md` still owns every
-token and `03-protocol.md` carries the wire shapes this doc specifies.
+token and `03-protocol.md` carries the wire shapes this doc specifies. See the
+**implementation postscript** at the end for what the build changed and what it
+measured. The manual test below has not been run yet, and the exit test needs a
+playtest (`04-roadmap.md`'s ledger).
 
 ## What it is
 
@@ -344,8 +348,11 @@ Kept for the whole game, keyed by round. `cheeredBy.size` becomes
 the wire, so who cheered what is never published. That is deliberate: cheering
 should cost nothing socially.
 
-The game log (`GameLogSink`) persists the reel alongside the existing payload —
-one more JSON column, same flat-row approach `GameLog.ts` already argues for.
+The game log (`GameLogSink`) persists the reel. **No new column** — it rides
+inside the existing `results` JSON, which already stores the *unredacted*
+`ResultsPayload` and so already carries stage-gated `boards`. (The design draft
+called for a second column; that would have duplicated data the row already
+holds, and left two copies free to disagree. Corrected at build time.)
 
 **`resetForNewGame()` must clear the proposal records.** `CLAUDE.md` already
 warns that a survivor there is a bug that only shows up in the *second* game of
@@ -442,3 +449,57 @@ a session; this is a new thing to forget.
     entry is crowned. Confirm a card whose top two entries tie has **no** crown.
 22. Play a second game with **Play again**. Confirm no cheers, cards or
     proposals from the first game survive into the second.
+
+**Added at build time**
+
+23. On the phone at stage ③, use the **‹ › arrows** as well as the swipe, and
+    confirm the dots track the card. The arrows exist because a swipe is
+    unreachable on a desktop browser and by keyboard; both drive the same index.
+24. With the game still on the open floor, confirm the cheer control on the
+    stage strip is **disabled** while the name on stage is your own, and that
+    the same is true for your own row in the "This round" sheet.
+25. On the display, watch a card with **more entries than fit** (12 players all
+    proposing is the case to force). Confirm it ends with "+N more" rather than
+    running off the bottom, and that no entry is half-cut at the card's edge.
+
+## Implementation postscript (2026-07-24)
+
+What the build learned, beyond what the design said.
+
+- **Card order is computed on the server, not by each client.** The design
+  specified "a pure function of the payload", which two implementations could
+  satisfy and still drift. Sorting in `Room.buildReel()` and shipping `reel`
+  pre-ordered makes the TV and the phone walk the same sequence by construction.
+  The FNV-1a tiebreak still exists; it just lives in one place.
+- **The whole display card is height-bound, and the `--text-d-*` ramp is not.**
+  That ramp is vw-driven so the display scales with width, which is right for
+  every other display surface. This card is a vertical stack on a screen that
+  never scrolls, so at 1920×900 the ramp handed it the same 72 px topic it uses
+  at 1920×1080 with 180 px less room. The card now runs a local unit,
+  `--reel-u: min(1vw, 1.78vh)` — exactly 1vw at the 16:9 design target, falling
+  back to height on anything shorter — and every size on it is a multiple of
+  that. Same both-axes rule `Starburst` and the stage-② boards follow.
+- **`overflow-hidden` makes an overflow invisible, not absent.** A 12-entry card
+  ran 63 px past the bottom of a 1920×900 screen while
+  `scrollHeight === clientHeight` still reported `true`. The no-scroll assertion
+  in the verification list is necessary and **not sufficient**: also assert the
+  card's own rect is inside the viewport, and that the last entry's rect is
+  inside the list's.
+- **A percentage `max-height` against an auto-height parent resolves to
+  `none`.** The card's `max-h-full` silently did nothing while its wrapper was
+  centred (and therefore content-sized), which is what let the overflow above
+  happen. The wrapper stretches to a definite height and centres *inside* itself.
+- **The display cap is 6 entries, the phone's is 9**, because the constraints
+  differ: the phone card sits in a page that scrolls and only has to stay
+  readable. Type shrinks first, "+N more" second, clipping never.
+- **`app.ts` routes intents by an explicit `case` list with no `default`**, so a
+  new intent that is schema-valid but unlisted is silently dropped — no error,
+  no broadcast, and the client just sees nothing happen. `round.cheer` hit this.
+  Worth knowing before adding the next intent.
+
+Verified by measurement at build time: both cards (12-entry and 3-entry) at
+1920×1080, 1920×900 and 1366×768 — no page scroll, card rect inside the
+viewport, every rendered entry inside the list. Cheer toggles verified through
+the real UI including the disabled self-cheer, cheer-survives-withdrawal, and
+restoration after a full page reload. Server-side coverage is in
+`apps/server/test/reel.test.ts`.

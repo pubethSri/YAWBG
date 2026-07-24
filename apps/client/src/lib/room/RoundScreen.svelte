@@ -3,6 +3,7 @@
   import { socket } from "../socket.svelte";
   import { createCountdown } from "../countdown.svelte";
   import Starburst from "../Starburst.svelte";
+  import CheerButton from "./CheerButton.svelte";
   import HouseBoard from "./HouseBoard.svelte";
   import Sheet from "./Sheet.svelte";
   import StatusGrid from "./StatusGrid.svelte";
@@ -29,6 +30,17 @@
   const myQueueIndex = $derived(queue.findIndex((q) => q.playerId === me?.id));
   const iAmOnStage = $derived(onStage !== undefined && onStage.playerId === me?.id);
   const stagePlayer = $derived(roomState.players.find((p) => p.id === onStage?.playerId));
+
+  /**
+   * Every name proposed this round, withdrawn ones included — the cheer window
+   * is the whole round, not the on-stage moment (docs/10 decision 4). A
+   * proposer who confirms in two seconds gives the room no time, so restricting
+   * cheers to the stage would systematically under-represent the names that
+   * were so obviously funny nobody argued.
+   */
+  const roundProposals = $derived(round?.proposals ?? []);
+  /** Mine alone; it rides the private frame so a reconnect restores the toggles. */
+  const myCheers = $derived(new Set(board?.cheeredProposalIds ?? []));
 
   const resolvedCount = $derived(roomState.players.filter((p) => p.resolved).length);
   const totalCount = $derived(roomState.players.length);
@@ -206,36 +218,55 @@
       </h1>
     </div>
 
-    <!-- 2. Stage strip: one-line ticker, tap for the full queue. -->
-    <button
-      class="flex items-center gap-2 rounded-[var(--radius-tag)] border border-near-black bg-paper-white px-3 py-2 text-left font-ui text-body-sm"
-      onclick={() => (queueSheet = true)}
-      disabled={queue.length === 0}
+    <!-- 2. Stage strip: one-line ticker, tap for everything proposed this round.
+         The cheer toggle lives at its right end rather than taking new
+         permanent real estate — this is already the most crowded screen in the
+         game (docs/06), so the strip absorbs the control instead of growing a
+         row. The strip is a row of two buttons, not one: a button can't nest. -->
+    <div
+      class="flex items-center gap-2 rounded-[var(--radius-tag)] border border-near-black bg-paper-white py-1.5 pl-3 pr-1.5 font-ui text-body-sm"
     >
-      {#if onStage}
-        <span class="truncate">
-          <span class="font-semibold">On stage:</span>
-          {stagePlayer?.name ?? "?"} — {onStage.name}
-        </span>
-        <!-- Queue awareness: your own place in the FIFO, not just its depth.
-             "+2 waiting" doesn't tell you whether you're about to be up. -->
-        {#if myQueueIndex > 0}
-          <span
-            class="tabular ml-auto shrink-0 rounded-[var(--radius-tag)] bg-sunburst-yellow px-2 py-0.5 text-caption font-semibold text-ink-black"
-          >
-            you're #{myQueueIndex + 1}
+      <button
+        class="flex min-w-0 flex-1 items-center gap-2 py-1 text-left"
+        onclick={() => (queueSheet = true)}
+        disabled={roundProposals.length === 0}
+      >
+        {#if onStage}
+          <span class="truncate">
+            <span class="font-semibold">On stage:</span>
+            {stagePlayer?.name ?? "?"} — {onStage.name}
           </span>
-        {:else if queue.length > 1}
-          <span
-            class="ml-auto shrink-0 rounded-[var(--radius-tag)] bg-aqua-pop px-2 py-0.5 text-caption font-semibold text-ink-black"
-          >
-            +{queue.length - 1} waiting
-          </span>
+          <!-- Queue awareness: your own place in the FIFO, not just its depth.
+               "+2 waiting" doesn't tell you whether you're about to be up. -->
+          {#if myQueueIndex > 0}
+            <span
+              class="tabular ml-auto shrink-0 rounded-[var(--radius-tag)] bg-sunburst-yellow px-2 py-0.5 text-caption font-semibold text-ink-black"
+            >
+              you're #{myQueueIndex + 1}
+            </span>
+          {:else if queue.length > 1}
+            <span
+              class="ml-auto shrink-0 rounded-[var(--radius-tag)] bg-aqua-pop px-2 py-0.5 text-caption font-semibold text-ink-black"
+            >
+              +{queue.length - 1} waiting
+            </span>
+          {/if}
+        {:else if roundProposals.length > 0}
+          <span class="truncate text-slate-gray">floor is open — see this round</span>
+        {:else}
+          <span class="text-slate-gray">floor is open</span>
         {/if}
-      {:else}
-        <span class="text-slate-gray">floor is open</span>
+      </button>
+
+      {#if onStage}
+        <CheerButton
+          proposalId={onStage.id}
+          cheered={myCheers.has(onStage.id)}
+          mine={iAmOnStage}
+          disabled={!floorOpen}
+        />
       {/if}
-    </button>
+    </div>
 
     <!-- 3. Own board, the centerpiece. -->
     <div class="grid grid-cols-5 gap-1.5">
@@ -447,25 +478,51 @@
     </Sheet>
   {/if}
 
+  <!-- Re-framed from "the queue" to "this round" (docs/10 decision 4): the
+       cheer window is the whole round, so the sheet has to list the names that
+       have already left the floor. A withdrawal is often the moment the joke
+       lands — the name gets pulled *because* the table rejected it, and that is
+       exactly when people want to applaud it. -->
   {#if queueSheet}
-    <Sheet title="Proposal queue" onClose={() => (queueSheet = false)}>
-      {#if queue.length === 0}
+    <Sheet title="This round" onClose={() => (queueSheet = false)}>
+      {#if roundProposals.length === 0}
         <p class="font-ui text-body-sm text-slate-gray">The floor is open — nobody has proposed yet.</p>
       {:else}
         <ol class="flex flex-col gap-2">
-          {#each queue as q, i (q.playerId)}
+          {#each roundProposals as { proposal, outcome } (proposal.id)}
+            {@const isOnStage = outcome === "live" && proposal.id === onStage?.id}
             <li
-              class="flex items-center gap-2 rounded-[var(--radius-tag)] border border-near-black px-3 py-2 font-ui text-body-sm"
-              class:bg-coral-blaze={i === 0}
-              class:bg-paper-white={i !== 0}
+              class="flex items-center gap-2 rounded-[var(--radius-tag)] border border-near-black px-3 py-1.5 font-ui text-body-sm"
+              class:bg-coral-blaze={isOnStage}
+              class:bg-paper-white={!isOnStage}
             >
-              <span class="font-semibold">
-                {roomState.players.find((p) => p.id === q.playerId)?.name ?? "?"}
+              <span class="shrink-0 font-semibold">
+                {roomState.players.find((p) => p.id === proposal.playerId)?.name ?? "?"}
               </span>
-              <span class="truncate">{q.name}</span>
-              {#if i === 0}
+              <span class="min-w-0 truncate">{proposal.name}</span>
+
+              {#if isOnStage}
                 <span class="ml-auto shrink-0 text-caption font-semibold">on stage</span>
+              {:else if outcome === "locked"}
+                <span
+                  class="ml-auto shrink-0 rounded-[var(--radius-tag)] bg-electric-violet px-1.5 py-0.5 text-caption font-semibold text-paper-white"
+                >
+                  locked
+                </span>
+              {:else if outcome === "withdrawn"}
+                <span class="ml-auto shrink-0 text-caption font-semibold text-slate-gray">
+                  withdrawn
+                </span>
+              {:else}
+                <span class="ml-auto shrink-0 text-caption text-slate-gray">waiting</span>
               {/if}
+
+              <CheerButton
+                proposalId={proposal.id}
+                cheered={myCheers.has(proposal.id)}
+                mine={proposal.playerId === me.id}
+                disabled={!floorOpen}
+              />
             </li>
           {/each}
         </ol>

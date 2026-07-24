@@ -176,7 +176,9 @@ describe("M2 round loop", () => {
 
     g.host.send({ type: "round.propose", payload: { cellIndex: 3 } });
     let s = await drainUntil(g.all, (x) => x.round!.queue.length === 1);
-    expect(s.round!.queue[0]).toEqual({ playerId: g.ids[0]!, cellIndex: 3, name: "host-3" });
+    // v4: the id is server-assigned, so match around it.
+    expect(s.round!.queue[0]).toMatchObject({ playerId: g.ids[0]!, cellIndex: 3, name: "host-3" });
+    expect(s.round!.queue[0]!.id).toBeTruthy();
 
     // One live proposal per player.
     g.host.send({ type: "round.propose", payload: { cellIndex: 4 } });

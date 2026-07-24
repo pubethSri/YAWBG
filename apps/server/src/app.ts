@@ -291,6 +291,7 @@ export function createApp(opts: AppOptions = {}) {
         case "round.confirm":
         case "round.withdraw":
         case "round.pass":
+        case "round.cheer":
         case "round.forceAdvance":
         case "results.advance":
         case "game.playAgain": {

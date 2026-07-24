@@ -82,6 +82,17 @@ export class TestClient {
     return msg.payload;
   }
 
+  /**
+   * Drop everything already received but not yet read. `expectState` skips past
+   * `player.board` frames without consuming the backlog, so a test that has
+   * been reading only public frames has a pile of stale private ones queued —
+   * flush, then ask for a fresh pair with `state.request`, when the private
+   * frame is the thing under test.
+   */
+  flush(): void {
+    this.queue.length = 0;
+  }
+
   async expectError(code: string): Promise<void> {
     const msg = await this.nextSkipping("player.board");
     expect(msg).toMatchObject({ type: "error", payload: { code } });

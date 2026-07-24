@@ -9,8 +9,10 @@ import {
   type PrivateBoard,
   type PrivateCell,
   type Proposal,
+  type ProposalOutcome,
   type PublicCell,
   type PublicRoomState,
+  type ReelCard,
   type ResultsPayload,
   type RoundHistoryEntry,
   type RoundState,
@@ -48,6 +50,31 @@ export interface Player {
    * results (docs/01). This is the only record of who wrote what.
    */
   authors: (string | null)[];
+}
+
+/**
+ * The reel's raw material (docs/10). Kept for the whole game, one per proposal
+ * ever made — the wire only ever sees a slice of it: the *current* round's
+ * entries on `round.proposals`, and the cheer counts not until `revealStage` 3.
+ *
+ * `cheeredBy` is a Set of playerIds and never leaves the server as one: only
+ * `.size` ships, at stage 3 and nowhere else. That is deliberate, not an
+ * oversight — publishing *who* cheered what would make cheering cost something
+ * socially, and the whole mechanic is built on it costing nothing.
+ *
+ * `playerName` is snapshotted here rather than looked up at results, because a
+ * player whose grace expired mid-game is gone from `players` by then and their
+ * entry still has to render.
+ */
+interface ProposalRecord {
+  id: string;
+  round: number;
+  playerId: string;
+  playerName: string;
+  cellIndex: number;
+  name: string;
+  outcome: ProposalOutcome;
+  cheeredBy: Set<string>;
 }
 
 interface House {
@@ -98,6 +125,10 @@ export class Room {
   private usedTopics: Topic[] = [];
   /** FIFO; index 0 is on stage. Carries proposed names, which are public. */
   private queue: Proposal[] = [];
+  /** Every proposal of the whole game, in the order proposed (docs/10). */
+  private proposalRecords: ProposalRecord[] = [];
+  /** Proposal ids only have to be unique within a game, so a counter beats a UUID on the wire. */
+  private proposalSeq = 0;
   private roundLocks: RoundHistoryEntry["locks"] = [];
   private roundHistory: RoundHistoryEntry[] = [];
   private results: ResultsPayload | null = null;
@@ -217,8 +248,9 @@ export class Room {
     if (player.isHost && this.players.length > 0) {
       this.players[0]!.isHost = true;
     }
-    // A pending proposal is auto-withdrawn on grace expiry (docs/01).
-    this.queue = this.queue.filter((q) => q.playerId !== playerId);
+    // A pending proposal is auto-withdrawn on grace expiry (docs/01) — and the
+    // name still reaches the reel, carrying the departed player's name with it.
+    this.withdrawQueued((q) => q.playerId === playerId);
     if (this.players.length === 0) {
       // Don't let a pending timer outlive the room and notify a ghost.
       this.clearPhaseTimer();
@@ -320,7 +352,22 @@ export class Room {
         if (this.queue.some((q) => q.playerId === player.id)) {
           return err("BAD_MESSAGE", "you already have a proposal on the floor");
         }
-        this.queue.push({ playerId: player.id, cellIndex: intent.payload.cellIndex, name: cell.name });
+        // A re-propose after a withdrawal is a genuinely new proposal with its
+        // own id and its own cheers — the old record keeps whatever it earned.
+        const proposal: Proposal = {
+          id: `p${++this.proposalSeq}`,
+          playerId: player.id,
+          cellIndex: intent.payload.cellIndex,
+          name: cell.name,
+        };
+        this.queue.push(proposal);
+        this.proposalRecords.push({
+          ...proposal,
+          round: this.roundNumber,
+          playerName: player.name,
+          outcome: "live",
+          cheeredBy: new Set(),
+        });
         return { ok: true };
       }
       case "round.confirm": {
@@ -341,6 +388,7 @@ export class Room {
           topicText: this.topic.text,
         };
         this.queue.splice(idx, 1);
+        this.setOutcome(proposal.id, "locked");
         this.roundLocks.push({ playerId: player.id, name: cell.name!, cellIndex: proposal.cellIndex });
         player.resolved = true; // one lock per player per round
         this.maybeAdvance();
@@ -351,7 +399,10 @@ export class Room {
         if (guard) return guard;
         const idx = this.queue.findIndex((q) => q.playerId === player.id);
         if (idx === -1) return err("BAD_MESSAGE", "you have no proposal to withdraw");
-        this.queue.splice(idx, 1); // costs nothing; re-propose or pass is still open
+        const [gone] = this.queue.splice(idx, 1); // costs nothing; re-propose or pass is still open
+        // The name leaves the floor but not the round: it stays cheerable and it
+        // still reaches the reel with its stamp (docs/10 decision 6).
+        this.setOutcome(gone!.id, "withdrawn");
         return { ok: true };
       }
       case "round.pass": {
@@ -360,9 +411,26 @@ export class Room {
         if (player.resolved) return err("ALREADY_RESOLVED", "you already resolved this round");
         // Passing with a live proposal implicitly withdraws it — otherwise it
         // strands a card on the display's stage that nobody can act on.
-        this.queue = this.queue.filter((q) => q.playerId !== player.id);
+        this.withdrawQueued((q) => q.playerId === player.id);
         player.resolved = true; // pass is final for the round
         this.maybeAdvance();
+        return { ok: true };
+      }
+      case "round.cheer": {
+        const guard = this.roundGuard(player);
+        if (guard) return guard;
+        const record = this.proposalRecords.find((r) => r.id === intent.payload.proposalId);
+        // Current round only. Cheering last round's name would rewrite a card
+        // the room has already moved past, and it is the one thing a hand-rolled
+        // devtools intent can reach for (docs/03 invariant 13).
+        if (!record || record.round !== this.roundNumber) {
+          return err("BAD_MESSAGE", "no such proposal in this round");
+        }
+        if (record.playerId === player.id) return err("BAD_MESSAGE", "you can't cheer your own name");
+        // A Set makes the cap of one cheer per (player, proposal) structural,
+        // and `on` being explicit makes a resent intent a no-op either way.
+        if (intent.payload.on) record.cheeredBy.add(player.id);
+        else record.cheeredBy.delete(player.id);
         return { ok: true };
       }
       case "round.forceAdvance": {
@@ -521,6 +589,7 @@ export class Room {
     this.clearPhaseTimer();
     this.clearRoundTimer();
     this.flushRoundHistory();
+    this.settleLiveProposals();
     this.queue = [];
     this.roundLocks = [];
     for (const p of this.players) p.resolved = false;
@@ -528,6 +597,27 @@ export class Room {
     // Timers fire outside app.ts's router, which is what normally broadcasts —
     // so every path through here must send its own snapshot.
     this.notifyAll();
+  }
+
+  private setOutcome(proposalId: string, outcome: ProposalOutcome): void {
+    const record = this.proposalRecords.find((r) => r.id === proposalId);
+    if (record) record.outcome = outcome;
+  }
+
+  /** Drop matching proposals off the floor and stamp their records withdrawn. */
+  private withdrawQueued(match: (p: Proposal) => boolean): void {
+    for (const q of this.queue) if (match(q)) this.setOutcome(q.id, "withdrawn");
+    this.queue = this.queue.filter((q) => !match(q));
+  }
+
+  /**
+   * Anything still `live` when a round ends was withdrawn by the round ending —
+   * force-advance, the soft timer, or the last player resolving all reset the
+   * floor without touching individual proposals. docs/10 decision 6 promises
+   * every reel entry is `locked` or `withdrawn`; this is what makes that true.
+   */
+  private settleLiveProposals(): void {
+    for (const r of this.proposalRecords) if (r.outcome === "live") r.outcome = "withdrawn";
   }
 
   private flushRoundHistory(): void {
@@ -623,21 +713,28 @@ export class Room {
   private endGame(): void {
     this.clearPhaseTimer();
     this.clearRoundTimer();
+    // The last round never reaches advanceRound, so its stragglers settle here.
+    // docs/10's outcome table has no third row precisely because every path out
+    // of a round runs one of these two.
+    this.settleLiveProposals();
     this.results = this.buildResults();
     this.phase = "results";
     this.writeGameLog();
   }
 
   /**
-   * Stage 0 -> 1 -> 2, never backwards, and never past 2 (docs/03 invariant 10).
-   * K = 0 skips the authorship stage: with no pool there is nothing to roast,
-   * and a stage that renders an empty card is worse than no stage.
+   * Stage 0 -> 1 -> 2 -> 3, never backwards, and never past 3 (docs/03
+   * invariant 10). K = 0 skips the authorship stage: with no pool there is
+   * nothing to roast, and a stage that renders an empty card is worse than no
+   * stage. Stage 3 — the reel — is never skipped even when the reel is empty,
+   * because it is also the screen that holds Play again (docs/10 decision 1).
    * Returns null when there is nowhere left to go.
    */
-  private nextRevealStage(): 1 | 2 | null {
+  private nextRevealStage(): 1 | 2 | 3 | null {
     const stage = this.results?.revealStage ?? 0;
     if (stage === 0) return this.settings.sabotageCells > 0 ? 1 : 2;
     if (stage === 1) return 2;
+    if (stage === 2) return 3;
     return null;
   }
 
@@ -658,6 +755,10 @@ export class Room {
     this.topicPile = [];
     this.usedTopics = [];
     this.queue = [];
+    // The reel's raw material, and the newest thing on this list — a survivor
+    // here would put game one's jokes on game two's reel (docs/10).
+    this.proposalRecords = [];
+    this.proposalSeq = 0;
     this.roundLocks = [];
     this.roundHistory = [];
     this.results = null;
@@ -704,7 +805,62 @@ export class Room {
         })),
       })),
       roundHistory: this.roundHistory,
+      reel: this.buildReel(),
     };
+  }
+
+  /**
+   * One card per round that produced at least one proposal — a topic nobody
+   * answered is not a joke, so it gets no card (docs/10's edge cases).
+   *
+   * Sorted here rather than in each client: the auto-rotating display and the
+   * swiped phone have to be walking the same sequence even when they are on
+   * different cards, and one server-side sort makes that structural instead of
+   * two implementations agreeing by luck.
+   */
+  private buildReel(): ReelCard[] {
+    const byRound = new Map<number, ProposalRecord[]>();
+    for (const r of this.proposalRecords) {
+      const list = byRound.get(r.round);
+      if (list) list.push(r);
+      else byRound.set(r.round, [r]);
+    }
+
+    const cards: ReelCard[] = [];
+    for (const history of this.roundHistory) {
+      const records = byRound.get(history.round);
+      if (!records || records.length === 0) continue;
+      cards.push({
+        round: history.round,
+        topicText: history.topicText,
+        drawnNumbers: history.drawnNumbers,
+        // Cheers first, then the order they were proposed in — `records` is
+        // already in proposal order, and sort() is stable, so the tiebreak is
+        // free rather than something to encode.
+        entries: records
+          .map((r) => ({
+            proposalId: r.id,
+            playerId: r.playerId,
+            playerName: r.playerName,
+            name: r.name,
+            outcome: r.outcome === "locked" ? ("locked" as const) : ("withdrawn" as const),
+            cheers: r.cheeredBy.size,
+          }))
+          .sort((a, b) => b.cheers - a.cheers),
+      });
+    }
+
+    // The funniest round leads, which is what a looping idle screen wants: the
+    // first thing a newcomer sees should be the best one. With no cheers at all
+    // the first key is constant and the hash gives a stable shuffle — the "pick
+    // a random round" behaviour the reel needs before cheers exist. One rule,
+    // both halves (docs/10 decision 7).
+    const topCheers = (c: ReelCard): number => c.entries[0]?.cheers ?? 0;
+    return cards.sort(
+      (a, b) =>
+        topCheers(b) - topCheers(a) ||
+        fnv1a(a.topicText + a.round) - fnv1a(b.topicText + b.round),
+    );
   }
 
   private playerMask(player: Player): boolean[] {
@@ -762,7 +918,15 @@ export class Room {
   }
 
   getPrivateBoard(player: Player): PrivateBoard {
-    return { cells: player.board, poolSlots: player.poolSlots };
+    return {
+      cells: player.board,
+      poolSlots: player.poolSlots,
+      // This round only — the toggles this frame has to restore after a
+      // reconnect are exactly the ones still cheerable.
+      cheeredProposalIds: this.proposalRecords
+        .filter((r) => r.round === this.roundNumber && r.cheeredBy.has(player.id))
+        .map((r) => r.id),
+    };
   }
 
   private toPublicCell(cell: PrivateCell): PublicCell {
@@ -806,6 +970,15 @@ export class Room {
       allDrawn: this.allDrawn,
       topic: this.topic,
       queue: this.queue,
+      // Withdrawn names included and counts excluded: the names were public the
+      // moment they were proposed, so nothing new leaks, but a tally here would
+      // be a live verdict — the one thing docs/10's scope wall forbids.
+      proposals: this.proposalRecords
+        .filter((r) => r.round === this.roundNumber)
+        .map((r) => ({
+          proposal: { id: r.id, playerId: r.playerId, cellIndex: r.cellIndex, name: r.name },
+          outcome: r.outcome,
+        })),
     };
   }
 
@@ -835,15 +1008,20 @@ export class Room {
   /**
    * `revealStage` gates what leaves the server, not merely what the client
    * draws (see ResultsPayloadSchema.boards). `this.results` keeps the whole
-   * payload; stage 0 is the only stage that redacts, and it redacts boards
-   * entirely — names *and* authorship, since both first become visible at
-   * stage 1. Displays get this same frame, which is the point: one gate, one
-   * code path, no call site to remember.
+   * payload; the stages below redact, and they redact whole fields — stage 0
+   * withholds boards entirely (names *and* authorship, since both first become
+   * visible at stage 1), and everything below stage 3 withholds the reel, whose
+   * cheer counts are the surprise. Displays get this same frame, which is the
+   * point: one gate, one code path, no call site to remember.
    */
   private resultsPublic(): ResultsPayload | null {
     if (!this.results) return null;
-    if (this.results.revealStage === 0) return { ...this.results, boards: [] };
-    return this.results;
+    const stage = this.results.revealStage;
+    return {
+      ...this.results,
+      boards: stage === 0 ? [] : this.results.boards,
+      reel: stage === 3 ? this.results.reel : [],
+    };
   }
 
   // Sends every recipient the correct view: the shared public snapshot to
@@ -871,4 +1049,18 @@ export class Room {
 
 function err(code: ErrorCode, message: string): IntentResult {
   return { ok: false, code, message };
+}
+
+/**
+ * FNV-1a, 32-bit. Not a security primitive — it is the reel's tiebreak, chosen
+ * because it needs to be *stable* (the same game always shuffles the same way,
+ * so a reconnecting phone rejoins the sequence it left) rather than strong.
+ */
+function fnv1a(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
 }

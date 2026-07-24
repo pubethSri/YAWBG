@@ -217,6 +217,20 @@ body.display-shell {
   }
 }
 
+/* The reel's card change: a pure cross-fade. The *tilt* that goes with it
+   (docs/10 decision 7) is a discrete per-card value applied inside the faded
+   element, not an animated one — so this keyframe never touches transform and
+   can't clobber the rotation, and the reduced-motion collapse lands each card
+   in exactly the same position and tilt an animated one would. */
+@keyframes yawbg-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* The showpiece: the drawn number landing. One per screen. */
 .anim-slam {
   animation: yawbg-slam var(--duration-showpiece) var(--ease-enter) both;
@@ -228,6 +242,10 @@ body.display-shell {
 
 .anim-rise {
   animation: yawbg-rise var(--duration-state) var(--ease-enter) both;
+}
+
+.anim-fade {
+  animation: yawbg-fade var(--duration-state) var(--ease-enter) both;
 }
 
 /* Cell lock and House hit: the fill changes, the layout doesn't. */

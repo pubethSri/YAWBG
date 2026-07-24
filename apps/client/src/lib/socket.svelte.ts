@@ -196,6 +196,15 @@ class GameSocket {
     this.send({ type: "round.pass", payload: {} });
   }
 
+  /**
+   * Applaud a name proposed this round. `on` is explicit rather than a toggle
+   * so a resend after a flaky connection can't silently un-cheer — the button
+   * sends the state it wants, not a flip.
+   */
+  cheer(proposalId: string, on: boolean): void {
+    this.send({ type: "round.cheer", payload: { proposalId, on } });
+  }
+
   forceAdvance(): void {
     this.send({ type: "round.forceAdvance", payload: {} });
   }
