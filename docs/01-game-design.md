@@ -141,7 +141,7 @@ generalizes this via a communal pool:
 | Setting | Values | Default | Notes |
 |---|---|---|---|
 | `numberPoolSize` | 75 / 100 | 75 | 75 ≈ house bingo around draw 40; 100 runs longer |
-| `drawsPerRound` | 1–3 | 1 | N numbers advance the House per round, but only ONE topic (attached to the first). Compresses game length without cutting fun rounds |
+| `drawsPerRound` | 1–3 | 1 † | N numbers advance the House per round, but only ONE topic (attached to the first). Compresses game length without cutting fun rounds |
 | `houseFreeCenter` | on / off | on | Free center makes the House faster |
 | `houseBingoTarget` | 1 / 2 lines | 1 | 2 lines ≈ a longer game; alternative pacing lever to `drawsPerRound` |
 | `houseBoardVisibility` | `full` / `progress` / `hidden` | `full` | `full`: the doom clock on every screen. `progress`: abstract only ("House needs 2 more for a line"). `hidden`: pure jump-scare ending |
@@ -151,6 +151,13 @@ generalizes this via a communal pool:
 | `roundTimerSec` | off / 30–120 | off | Soft timer for `open_floor`. Off for face-to-face; useful for bigger/looser lobbies |
 | `lastCall` | on / off | off | One final topic + lock window after House bingo |
 | `deckIds` | multi-select | `general` | Selected decks are merged and shuffled together |
+
+† **Under review after playtest #1 (2026-07-27).** At `drawsPerRound: 1` with 4
+players / 75-pool, every player finished their board before the House bingoed —
+the doom-clock race, which is the tension, never happened. Raising the default
+is a live candidate (see `04-roadmap.md`'s playtest log); it's entangled with
+how freely a table lets each other lock, so it wants more than one game's
+evidence before the default moves.
 
 Not settings (fixed rules): duplicate names allowed; players fill all 25 cells
 (no player free-center); one lock per round; locks permanent.

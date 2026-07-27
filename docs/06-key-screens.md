@@ -60,6 +60,15 @@ activities instead of forcing a placement decision 25 times mid-brainstorm.
 *Committed with a playtest escape hatch: if real fills feel awkward, revisit the
 mode split before polishing it.*
 
+**Playtest #1 (2026-07-27) pulled that hatch.** A player expected to fix a typo
+in **dump mode** and couldn't — dump is write-only by design, and editing an
+existing name means switching to arrange mode and tapping its pencil. The split
+was *understood*, but the write-only dump felt like a dead end mid-entry.
+Options for next session (not yet decided): let dump mode edit the cell it just
+filled / any filled cell in place, or make the "editing lives in arrange" split
+more legible (e.g. an affordance on a filled dump entry). See `04-roadmap.md`'s
+playtest log — do not touch `BoardEditor.svelte` before that discussion.
+
 ## Screen 2: Open floor
 
 **Problem.** The screen players stare at for ~90% of the game. Six elements

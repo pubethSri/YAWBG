@@ -36,11 +36,12 @@ Three tiers of verification, and they are not interchangeable:
 
 | Milestone | Exit test | Status |
 |---|---|---|
-| M3 | "the room groans at a House hit without anyone explaining the screen" | ⏳ needs a playtest |
-| M4 | "a board screenshot gets posted to the group chat unprompted" | ⏳ needs a playtest |
-| M5 | "looks deliberate on a phone, a tablet and a laptop; nothing looks like a placeholder" | ⏳ partly judgeable solo, but M5 is not finished — responsive and PWA are outstanding |
-| M5.5 | "the room keeps watching after the game is over, and somebody says 'wait, go back to that one'" | ⏳ needs a playtest |
-| M6 | "friends play a full game on the public URL with nobody from the build team in the room" | ⏳ **this *is* the playtest** |
+| M2 | "full game at one table, phones only, start to results, with at least one heated argument" | ✅ **playtest #1** — the loop is fun and social on its own |
+| M3 | "the room groans at a House hit without anyone explaining the screen" | ⏳ playtest #1 was positive overall; the *display-specific* reaction was not separately reported (unclear a TV was in use) |
+| M4 | "a board screenshot gets posted to the group chat unprompted" | ⏳ not observed at playtest #1 — watch for it next time |
+| M5 | "looks deliberate on a phone, a tablet and a laptop; nothing looks like a placeholder" | ⏳ phone confirmed great at playtest #1; tablet/laptop + the responsive pass are still outstanding |
+| M5.5 | "the room keeps watching after the game is over, and somebody says 'wait, go back to that one'" | ⏳ not separately reported at playtest #1 (see the balance caveat in the log — the game may not have reached a tense ending) |
+| M6 | "friends play a full game on the public URL with nobody from the build team in the room" | ⏳ **untouched** — playtest #1 was local LAN with the build team present |
 
 **`09-display-stage.md`'s 25-step manual test passed on 2026-07-24** — tier 2,
 solo. It is evidence that the Stage is correct, and it is *not* evidence for
@@ -52,6 +53,40 @@ that only pays off if the playtest actually happens.
 The honest sequencing: **M5 makes it look finished, M5.5 gives it an ending,
 M6 ships it, and all five verdicts land in the same session.** If a playtest
 happens sooner, fold the observations in early.
+
+## Playtest log
+
+### Playtest #1 — 2026-07-27 (local LAN, not deployed)
+
+4 players, general deck, `numberPoolSize: 75`, `drawsPerRound: 1`. Run off a
+local `bun run dev:server` over the LAN, **not** the public build — so it is
+the first real room feedback but does **not** satisfy M6's exit test.
+
+What it settled and what it raised:
+
+1. **The core works.** Visuals read as deliberate and the loop is fun on its
+   social merits — "the game does its job as the system that drives the
+   gameplay." This is strong evidence for M2's exit test and for M5's phone
+   verdict; it is *not* a substitute for the M3 / M4 / M5.5 room observations,
+   which nobody reported hitting specifically.
+2. **Board editor friction (→ open question, next session).** The dump/arrange
+   split is understandable, but **you cannot edit an existing name in dump
+   mode** — by design, editing lives behind the pencil in arrange mode
+   (`06-key-screens.md`). A playtester expected to fix a typo without switching
+   modes. This is exactly the "if real fills feel awkward, revisit the mode
+   split" escape hatch `06` reserved. **Decision deferred:** widen dump mode to
+   allow in-place edits, or make the two-mode split more legible. Do not change
+   the editor before that discussion.
+3. **Pacing: `drawsPerRound: 1` felt slow (→ open question, next session).**
+   With one number a round the House crawled, and every player finished their
+   board *before* it bingoed — so the doom-clock race, which is the tension, was
+   gone. The user notes this is entangled with social generosity (how freely the
+   table lets each other lock), so it is not purely a number. **Candidate:**
+   raise the default `drawsPerRound` (and/or revisit `numberPoolSize` /
+   `houseBingoTarget`, the other pacing levers in `01-game-design.md`). This is
+   the "revisit pacing defaults after real games" item already parked in M8 —
+   it now has its first data point. Do not change the default before the
+   discussion; it may want more than one game's evidence.
 
 ## Design runway (now, before/alongside M0)
 
@@ -260,6 +295,27 @@ somebody says "wait, go back to that one."
 
 ## M6 — Ship it *(first public build; playtesting starts here)*
 
+**Open sequencing question (raised 2026-07-27, decide next session).** M6 was
+pulled ahead of decks/admin specifically to get a build in friends' hands for
+playtest feedback (see the top of this doc). Playtest #1 delivered that feedback
+**without a deployment** — a local LAN game was enough. Meanwhile the developer
+is **away from the deployment site** (the org VM; see `08-deployment.md` and the
+*ito* migration notes), so the real cutover cannot happen now; only a *local*
+replication of it (docker build, `deploy/compose.yml` up, Caddy config dry-run)
+is possible. So the original justification for M6-first is weaker than it was.
+Two ways to go, to be weighed next session:
+
+- **Keep M6 next, do the deployment-*rehearsal* locally** — build the image,
+  stand up compose, exercise the WS-behind-proxy path and the operability items
+  below against a local proxy, so the eventual real cutover is a config swap
+  rather than a debugging session. Defer only the org-VM-specific final step.
+- **Reorder again** — slot the remaining M5 slices (responsive pass, motion,
+  PWA) and/or the playtest-driven fixes (the two open questions above) ahead of
+  M6, since another local playtest is possible any time and deployment is
+  currently blocked on location, not on code.
+
+Neither is chosen yet. The rest of M6 as specced:
+
 Cutover per `08-deployment.md` — shared org VM behind Caddy, compose, the
 existing deploy workflow. Decks and admin are deliberately *not* here: the
 seeded `general` deck ships from JSON and is enough for real games.
@@ -291,7 +347,10 @@ Driven by what M6 actually surfaced, not guessed in advance.
 - Remaining reconnect edge cases (display refresh storms, anything playtesting
   found).
 - Playtest-driven pacing defaults: revisit `numberPoolSize` / `drawsPerRound`
-  after ~5 real games.
+  after ~5 real games. **First data point in (playtest #1, 2026-07-27):
+  `drawsPerRound: 1` felt too slow — the House lost the race to the players.**
+  See the playtest log; the default change is a live open question, not yet an
+  M8 item.
 
 ## Deliberately deferred (post-v1 ideas, keep out of scope)
 
