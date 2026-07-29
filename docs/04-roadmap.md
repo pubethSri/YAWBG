@@ -50,12 +50,17 @@ Three tiers of verification, and they are not interchangeable:
 | M5.5 | "the room keeps watching after the game is over, and somebody says 'wait, go back to that one'" | ⏳ not separately reported at playtest #1 (see the balance caveat in the log — the game may not have reached a tense ending) |
 | M6 | "friends play a full game on the public URL with nobody from the build team in the room" | ⏳ **untouched** — playtest #1 was local LAN with the build team present. Unreachable until the developer is back at the deploy site, which is why M6 was reordered behind M5 on 2026-07-29 |
 
-**`09-display-stage.md`'s 25-step manual test passed on 2026-07-24** — tier 2,
-solo. It is evidence that the Stage is correct, and it is *not* evidence for
-M3's exit test, which is about how a room reacts. Do not fold one into the
-other; the whole reason M3 shipped the display styled was to make the eventual
-playtest produce feedback about the game rather than about rough edges, and
-that only pays off if the playtest actually happens.
+**`09-display-stage.md`'s 25-step manual test passed on 2026-07-24**, and
+**`10-highlight-reel.md`'s passed on 2026-07-29** — both tier 2, solo. They are
+evidence that the Stage and the reel are correct, and they are *not* evidence
+for M3's or M5.5's exit tests, which are about how a room reacts. Do not fold
+one into the other; the whole reason M3 shipped the display styled was to make
+the eventual playtest produce feedback about the game rather than about rough
+edges, and that only pays off if the playtest actually happens.
+
+**Every written manual test in the repo has now passed.** What is left in the
+ledger below is exclusively tier 3 — five verdicts that only a playtest can
+settle, four of which need one that happens on the public URL.
 
 The honest sequencing: **M5 makes it look finished, M5.5 gives it an ending,
 M6 ships it, and all five verdicts land in the same session.** If a playtest
@@ -291,8 +296,9 @@ has opinions about.
 carries the ✎ marker. The reel shipped at v4 and went to v5 the same day:
 `docs/10` decision 3 was reversed once a full table's card was on a real screen,
 so a card is now one **name** rather than one round. A second bump was
-affordable only because nothing is deployed yet. `docs/10`'s 25-step manual test has **not** been run yet,
-and the exit test needs the playtest (see the ledger above).
+affordable only because nothing is deployed yet. **`docs/10`'s 25-step manual
+test passed 2026-07-29** (tier 2, solo); the exit test still needs the playtest
+(see the ledger above).
 
 **Scope-wall note:** `02-architecture.md` bans in-app voting/judging. Cheers
 clear that wall because they decide nothing *and* are invisible while decisions

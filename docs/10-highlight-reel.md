@@ -8,8 +8,10 @@ round, and that reshaped `ReelCard` (v4 → v5). This doc owns the reel's layout
 mechanic and the protocol they need; `07-design-system.md` still owns every
 token and `03-protocol.md` carries the wire shapes this doc specifies. See the
 **implementation postscript** at the end for what the build changed and what it
-measured. The manual test below has not been run yet, and the exit test needs a
-playtest (`04-roadmap.md`'s ledger).
+measured. **The 25-step manual test below passed on 2026-07-29** (tier 2 — a
+solo pass against the written steps). The exit test is a different thing and
+still needs a playtest: see `04-roadmap.md`'s ledger, and don't fold one into
+the other.
 
 ## What it is
 
@@ -434,6 +436,11 @@ a session; this is a new thing to forget.
   bottom.
 
 ### Manual test — numbered steps
+
+**Passed 2026-07-29**, solo, all 25 steps including the two added at build time.
+Tier 2 in `04-roadmap.md`'s three-tier scheme: it establishes that the reel and
+the cheer mechanic *work and read correctly*. It is **not** evidence for M5.5's
+exit test, which is an observation about a room and needs the friend group.
 
 **Setup**
 

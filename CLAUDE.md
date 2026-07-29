@@ -42,8 +42,10 @@ retro-fit, and `RoundScreen.svelte` (539 lines) is its biggest single item.
 **M5.5 — `docs/10-highlight-reel.md` — is BUILT** (2026-07-24, both slices in
 one session, `PROTOCOL_VERSION` **5**). It adds a fourth results stage (a
 rotating card pairing one round's topic with **one** name proposed for it,
-withdrawn ones included) plus the *cheer* mechanic. `docs/10`'s 25-step manual
-test has not been run yet. The one rule to keep holding:
+withdrawn ones included) plus the *cheer* mechanic. **`docs/10`'s 25-step manual
+test passed 2026-07-29** (tier 2, solo — not the exit test, which needs a
+playtest). With `docs/09`'s pass, every written manual test in the repo has now
+passed; what remains unjudged is tier 3 only. The one rule to keep holding:
 
 - **The hidden tally is a rule, not a presentation choice.** Cheers clear the
   "no in-app voting/judging" wall in `docs/02` only because no count is visible
