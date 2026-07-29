@@ -1,5 +1,19 @@
 # 11 — Cross-game portal & shared session assessment
 
+> ## ⚠️ This is an artifact of ideas, not a plan.
+>
+> **Parked 2026-07-29.** Nothing in this document is scheduled, committed to, or
+> on any milestone. It exists to capture thinking that was done once so it
+> doesn't have to be done again — not to describe work that is going to happen.
+>
+> In particular, **§7 is not a work queue.** It is a list of questions someone
+> *would* need to answer *if* the portal idea were ever taken up. Do not start
+> on it because it looks like a checklist, and do not treat anything here as a
+> requirement on M5–M8.
+>
+> The roadmap (`04-roadmap.md`) is the only thing that says what happens next.
+> If this ever gets picked up, it enters through there like anything else.
+
 **Status: assessment, no decision made, nothing built.** Written 2026-07-27 by
 reading both codebases (`C:\YAWBG` and `C:\ito`) at that date. This is the
 canonical copy; `C:\ito\docs\directions\cross-game-portal.md` is ito's brief and
