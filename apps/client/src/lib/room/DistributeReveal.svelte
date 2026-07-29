@@ -10,7 +10,7 @@
 </script>
 
 {#if board}
-  <div class="mx-auto flex max-w-md flex-col gap-4 p-4">
+  <div class="content-col flex flex-col gap-4 p-4">
     <h1 class="font-game text-topic font-semibold">Your board is set</h1>
     <p class="font-ui text-body-sm text-slate-gray">
       Aqua cells arrived from the communal pool — authorship stays hidden until results.

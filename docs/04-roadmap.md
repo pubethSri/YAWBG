@@ -249,14 +249,16 @@ bullets below are the answers, not options.
   and the share-to-PNG export). No protocol change; `PROTOCOL_VERSION` stays 3.
 - Motion pass: draw-moment, lock, House-hit and results-reveal timings tuned
   together rather than per-screen.
-- Responsive pass per `06-key-screens.md` (player view only — the display is
-  landscape-first and unrelated): landscape-phone two-pane layout;
-  tablet/desktop inlining (House board + queue beside a max-width board); cell
-  auto-shrink floor tuning on small phones; **and a capped, centred content
-  column on the conventional screens** — landing, lobby, board editor, results.
-  There is currently not one breakpoint utility in the client, so this is
-  greenfield rather than a retro-fit, and `RoundScreen.svelte` is its biggest
-  single item.
+- **Responsive pass — ✅ built (2026-07-29), see `06-key-screens.md`'s
+  implementation postscript.** Player view only; the display is landscape-first
+  and unrelated. Landscape-phone two-pane layout, tablet/desktop inlining (the
+  House board and the round list beside a 600px-capped board), cell auto-shrink
+  tuned per layout rather than by name length alone, and the capped centred
+  content column on landing, lobby, board editor and results. Greenfield as
+  predicted — two custom variants and one utility in `app.css` are the whole
+  breakpoint vocabulary, and `RoundScreen.svelte` was indeed the bulk of it.
+  Verified by measurement at seven viewport sizes; the by-eye pass is still
+  outstanding and is what the exit test needs.
 - **Display results, stage ①:** the roast grid is `overflow-hidden` with
   auto-fill columns, so a large lobby with a big pool (12 × K=8 = 96 entries)
   silently clips. Fix by **scaling the entry type down to a floor** rather than

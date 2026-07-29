@@ -161,7 +161,7 @@
 </script>
 
 {#if board && me}
-  <div class="mx-auto flex max-w-md flex-col gap-4 p-4 pb-28">
+  <div class="content-col flex flex-col gap-4 p-4 pb-28">
     <div class="flex items-center justify-between">
       <h1 class="font-game text-topic font-semibold">Fill your board</h1>
       {#if K > 0}

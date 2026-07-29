@@ -160,6 +160,13 @@
   // docs/06/07: 14px cell names auto-shrink to a 12px floor, then truncate —
   // the tap sheet always has the full value. Length tiers rather than measuring:
   // 12px is the floor everywhere, no exceptions.
+  //
+  // The two variants in the markup tune the tier to how big a cell actually is
+  // in each layout, which the length alone can't know:
+  //   lsphone — the board is height-bound at ~44px cells, so every name takes
+  //             the floor, not just the long ones.
+  //   wide    — cells are ~116px, where docs/06 says the shrink should rarely
+  //             engage at all; nothing needs it, so nothing gets it.
   const cellSize = (name: string | null): string => {
     if (!name) return "text-body-sm";
     return name.length > 16 ? "text-caption" : "text-body-sm";
@@ -167,9 +174,14 @@
 </script>
 
 {#if board && me && round}
-  <div class="mx-auto flex max-w-md flex-col gap-3 p-4 pb-40">
+  <!-- Three layouts, one DOM (docs/06 "Responsive behavior"): the grid areas
+       are defined in app.css, and the source order here is the reading order at
+       every size. -->
+  <div class="round-layout p-4 pb-40">
     <!-- 1. Topic banner, pinned: the question everyone is answering. -->
-    <div class="sticky top-0 z-[5] -mx-4 border-b border-mist-gray bg-cream-blush px-4 pb-3 pt-2">
+    <div
+      class="round-banner sticky top-0 z-[5] -mx-4 border-b border-mist-gray bg-cream-blush px-4 pb-3 pt-2"
+    >
       <div class="mb-1 flex items-center gap-2">
         <span
           class="tabular rounded-[var(--radius-tag)] bg-electric-violet px-2 py-0.5 font-ui text-caption font-semibold text-paper-white"
@@ -224,7 +236,7 @@
          game (docs/06), so the strip absorbs the control instead of growing a
          row. The strip is a row of two buttons, not one: a button can't nest. -->
     <div
-      class="flex items-center gap-2 rounded-[var(--radius-tag)] border border-near-black bg-paper-white py-1.5 pl-3 pr-1.5 font-ui text-body-sm"
+      class="round-strip flex items-center gap-2 rounded-[var(--radius-tag)] border border-near-black bg-paper-white py-1.5 pl-3 pr-1.5 font-ui text-body-sm"
     >
       <button
         class="flex min-w-0 flex-1 items-center gap-2 py-1 text-left"
@@ -269,13 +281,13 @@
     </div>
 
     <!-- 3. Own board, the centerpiece. -->
-    <div class="grid grid-cols-5 gap-1.5">
+    <div class="round-board grid grid-cols-5 gap-1.5">
       {#each board.cells as cell, i (i)}
         {@const proposed = myProposal?.cellIndex === i}
         <div
           role="button"
           tabindex="0"
-          class="fill-transition relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-[var(--radius-tag)] border border-near-black p-1 text-center font-ui leading-tight {cellSize(
+          class="fill-transition lsphone:text-caption wide:text-body-sm relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-[var(--radius-tag)] border border-near-black p-1 text-center font-ui leading-tight {cellSize(
             cell.name,
           )}"
           class:bg-electric-violet={cell.locked !== null}
@@ -300,52 +312,76 @@
       {/each}
     </div>
 
-    {#if others.length > 0}
-      <h2 class="mt-2 font-ui text-heading font-bold">Other players</h2>
-      <div class="flex flex-col gap-3">
-        {#each others as p (p.id)}
-          <StatusGrid player={p} context="round" />
-        {/each}
-      </div>
-    {/if}
-  </div>
-
-  <!-- 4. Action bar, pinned bottom. Sits above Room.svelte's leave-room footer. -->
-  <div
-    class="fixed inset-x-0 bottom-0 z-[6] border-t border-near-black bg-cream-blush px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3"
-  >
-    <div class="mx-auto flex max-w-md items-center gap-2">
-      <button
-        class="flex-1 rounded-[var(--radius-button)] border-2 border-ink-black bg-paper-white px-4 py-3 font-ui text-body font-bold disabled:border-pale-gray disabled:bg-mist-gray disabled:text-slate-gray"
-        disabled={!floorOpen || me.resolved}
-        onclick={() => (passSheet = true)}
-      >
-        {me.resolved ? "Resolved" : "Pass"}
-      </button>
-      {#if clock.secondsLeft !== null}
-        <span
-          class="tabular fill-transition shrink-0 rounded-[var(--radius-tag)] border border-near-black px-2 py-1 font-ui text-body-sm font-semibold"
-          class:bg-coral-blaze={clock.secondsLeft <= 10}
-          class:text-ink-black={clock.secondsLeft <= 10}
-          class:bg-paper-white={clock.secondsLeft > 10}
-        >
-          {clock.secondsLeft}s
-        </span>
+    <!-- 3b. The inlined detail column. This is the whole of "breakpoints reveal,
+         they don't add": exactly what the House chip and the stage strip open
+         on a phone, shown outright where there is room for it. Both bodies are
+         snippets rendered in two places, so the wide layout and the sheets
+         cannot drift apart. -->
+    <aside class="round-aside flex-col gap-3">
+      {#if house}
+        <div class="rounded-[var(--radius-card)] border border-near-black bg-paper-white p-3">
+          <h2 class="mb-2 font-ui text-heading font-bold">The House</h2>
+          {@render houseDetail()}
+        </div>
       {/if}
-      <span class="tabular shrink-0 font-ui text-body-sm font-semibold text-slate-gray">
-        {resolvedCount}/{totalCount} resolved
-      </span>
-    </div>
-    {#if me.isHost && stalled}
-      <div class="mx-auto mt-2 flex max-w-md">
-        <button
-          class="flex-1 rounded-[var(--radius-button)] border-2 border-coral-blaze px-4 py-2 font-ui text-body-sm font-semibold text-coral-blaze"
-          onclick={() => (advanceSheet = true)}
-        >
-          Force advance ({resolvedCount}/{totalCount} resolved)
-        </button>
+      <div class="rounded-[var(--radius-card)] border border-near-black bg-paper-white p-3">
+        <h2 class="mb-2 font-ui text-heading font-bold">This round</h2>
+        {@render roundList()}
+      </div>
+    </aside>
+
+    {#if others.length > 0}
+      <div class="round-others">
+        <h2 class="font-ui text-heading font-bold">Other players</h2>
+        <div class="mt-3 flex flex-col gap-3">
+          {#each others as p (p.id)}
+            <StatusGrid player={p} context="round" />
+          {/each}
+        </div>
       </div>
     {/if}
+
+    <!-- 4. Action bar. Pinned to the viewport at every size except the
+         landscape phone, where it joins the flow as a grid cell — which is why
+         it has to live *inside* the layout grid rather than beside it. It is
+         `position: fixed` in the other two layouts, so it is out of flow there
+         and its grid area is simply never used. -->
+    <div
+      class="round-actions fixed inset-x-0 bottom-0 z-[6] border-t border-near-black bg-cream-blush px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3"
+    >
+      <div class="round-actions-inner mx-auto flex max-w-md items-center gap-2">
+        <button
+          class="flex-1 rounded-[var(--radius-button)] border-2 border-ink-black bg-paper-white px-4 py-3 font-ui text-body font-bold disabled:border-pale-gray disabled:bg-mist-gray disabled:text-slate-gray"
+          disabled={!floorOpen || me.resolved}
+          onclick={() => (passSheet = true)}
+        >
+          {me.resolved ? "Resolved" : "Pass"}
+        </button>
+        {#if clock.secondsLeft !== null}
+          <span
+            class="tabular fill-transition shrink-0 rounded-[var(--radius-tag)] border border-near-black px-2 py-1 font-ui text-body-sm font-semibold"
+            class:bg-coral-blaze={clock.secondsLeft <= 10}
+            class:text-ink-black={clock.secondsLeft <= 10}
+            class:bg-paper-white={clock.secondsLeft > 10}
+          >
+            {clock.secondsLeft}s
+          </span>
+        {/if}
+        <span class="tabular shrink-0 font-ui text-body-sm font-semibold text-slate-gray">
+          {resolvedCount}/{totalCount} resolved
+        </span>
+      </div>
+      {#if me.isHost && stalled}
+        <div class="round-actions-inner mx-auto mt-2 flex max-w-md">
+          <button
+            class="flex-1 rounded-[var(--radius-button)] border-2 border-coral-blaze px-4 py-2 font-ui text-body-sm font-semibold text-coral-blaze"
+            onclick={() => (advanceSheet = true)}
+          >
+          Force advance ({resolvedCount}/{totalCount} resolved)
+          </button>
+        </div>
+      {/if}
+    </div>
   </div>
 
   <!-- Draw moment: a takeover, not a screen (docs/05 decision #1). The server
@@ -441,12 +477,14 @@
     </Sheet>
   {/if}
 
-  <!-- Open in every visibility mode, `hidden` included: the sheet also carries
-       the called-number history, which is public whatever the House is doing.
-       The display shows it in all three modes, and no public fact may live only
-       on the TV (docs/05's display-optional principle). -->
-  {#if houseSheet && house}
-    <Sheet title="The House" onClose={() => (houseSheet = false)}>
+  <!-- The House body. Rendered in two places — this sheet on a phone, the
+       inlined aside on a wide screen — from one definition, because the two
+       must not drift. The called-number history is the reason that matters: it
+       is public whatever the House is doing (the display shows it in all three
+       modes), and no public fact may live in only one surface, per docs/05's
+       display-optional principle. -->
+  {#snippet houseDetail()}
+    {#if house}
       {#if house.mode === "full"}
         <HouseBoard {house} />
         <p class="mt-3 font-ui text-body-sm text-slate-gray">
@@ -472,9 +510,17 @@
         </p>
       {/if}
       {#if round.allDrawn.length > 0}
-        <p class="mt-3 mb-1 font-ui text-body-sm font-semibold text-slate-gray">Called so far</p>
+        <p class="mb-1 mt-3 font-ui text-body-sm font-semibold text-slate-gray">Called so far</p>
         <p class="tabular font-ui text-body-sm">{round.allDrawn.join(" · ")}</p>
       {/if}
+    {/if}
+  {/snippet}
+
+  <!-- Open in every visibility mode, `hidden` included — see the snippet above
+       for why the history makes that non-negotiable. -->
+  {#if houseSheet && house}
+    <Sheet title="The House" onClose={() => (houseSheet = false)}>
+      {@render houseDetail()}
     </Sheet>
   {/if}
 
@@ -483,8 +529,7 @@
        have already left the floor. A withdrawal is often the moment the joke
        lands — the name gets pulled *because* the table rejected it, and that is
        exactly when people want to applaud it. -->
-  {#if queueSheet}
-    <Sheet title="This round" onClose={() => (queueSheet = false)}>
+  {#snippet roundList()}
       {#if roundProposals.length === 0}
         <p class="font-ui text-body-sm text-slate-gray">The floor is open — nobody has proposed yet.</p>
       {:else}
@@ -527,6 +572,11 @@
           {/each}
         </ol>
       {/if}
+  {/snippet}
+
+  {#if queueSheet}
+    <Sheet title="This round" onClose={() => (queueSheet = false)}>
+      {@render roundList()}
     </Sheet>
   {/if}
 

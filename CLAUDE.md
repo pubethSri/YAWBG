@@ -28,16 +28,13 @@ timing and the player-view responsive pass.
 
 **M5 is being built in slices**, each ending with a manual test the user runs
 before the next starts. Slice 1 — `docs/09-display-stage.md`'s Stage rebuild
-plus the global tabletop texture — is **built**; see the M5 notes below. Still
-outstanding: the cross-surface cohesion audit, the motion pass, the responsive
-pass and the PWA. Decisions already settled for those (2026-07-23), so don't
-re-open them: the PWA is **manifest + icons, no service worker** and still needs
-an icon asset drawn (the repo has none, and no `apps/client/public/` directory);
-the responsive pass covers the open floor, the board editor **and**
-lobby/home/results; the display's stage-① roast grid **scales its type down to
-fit** rather than clipping at large pools. There is currently not one responsive
-breakpoint utility in the whole client — that pass is greenfield, not a
-retro-fit, and `RoundScreen.svelte` (539 lines) is its biggest single item.
+plus the global tabletop texture — and slice 2 — the **player-view responsive
+pass** — are **built**; see the M5 notes below. Still outstanding: the
+cross-surface cohesion audit, the motion pass and the PWA. Decisions already
+settled for those (2026-07-23), so don't re-open them: the PWA is **manifest +
+icons, no service worker** and still needs an icon asset drawn (the repo has
+none, and no `apps/client/public/` directory); the display's stage-① roast grid
+**scales its type down to fit** rather than clipping at large pools.
 
 **M5.5 — `docs/10-highlight-reel.md` — is BUILT** (2026-07-24, both slices in
 one session, `PROTOCOL_VERSION` **5**). It adds a fourth results stage (a
@@ -284,6 +281,40 @@ M5 notes (slice 1 — display Stage + tabletop texture, built 2026-07-23;
   units, so SCALE gives it 2× resolution at the same physical pitch. Verified in
   an exported PNG: dot centres are exactly `#f0d0a8`, and 0 mark pixels landed
   inside the 25 cells across 58k samples.
+
+M5 notes (slice 2 — the player-view responsive pass, built 2026-07-29):
+
+- **The whole breakpoint vocabulary is two custom variants and one utility**
+  in `app.css`: `lsphone`, `wide`, `content-col`. There was nothing before this.
+  `RoundScreen.svelte`'s three layouts are three grid definitions in `app.css`
+  beside `.stage-columns`, following that precedent — one DOM and one source
+  order at every size, with only `grid-area` moving.
+- **`lsphone` and `wide` must be mutually exclusive, and it isn't automatic.**
+  A 1100×400 window is landscape, short *and* wider than 64rem, so both matched
+  and the later rule won — a 600px board in a 400px viewport. `wide` carries a
+  `min-height` clause exactly one pixel past `lsphone`'s ceiling to make the
+  two disjoint by construction. Don't relax either bound independently.
+- **Tailwind's `@custom-variant` silently emits nothing for CSS range syntax.**
+  `(height <= 30rem)` parses fine and generates no rule, so the class sits in
+  the markup and never matches — it looks exactly like a specificity bug. Use
+  the legacy `max-height` / `min-width` spelling. The hand-written media
+  queries use the same spelling on purpose, so the pairs compare by eye.
+- **A `grid-area` only does something on a grid *child*.** The action bar was a
+  sibling of the layout wrapper, so its area was ignored and the landscape
+  layout put it below the other-players list. It lives inside the grid now; in
+  the two layouts where it's `position: fixed` it's out of flow and the area is
+  unused.
+- **These layout rules are unlayered and Tailwind's utilities are not** (v4
+  emits `@layer utilities`; unlayered beats every layer). That is load-bearing —
+  it's what lets a media query turn off the markup's `sticky`, `-mx-4` and
+  `pb-40` without `!important`. It also means anything declared there beats a
+  utility of the same name on the same element, so keep those rules to layout.
+- The House detail and the round list are **Svelte snippets rendered twice** —
+  the phone's sheets and the wide layout's inlined aside. One definition, since
+  the called-number history is public and may not end up in only one of them.
+- Verified by measurement at 320×568, 390×844, 768×1024, 844×390, 1100×400,
+  1280×800, 1440×900. **The by-eye pass has not been done** — that's tier 2 and
+  it's what M5's exit test needs.
 
 M5.5 notes (the highlight reel & cheers, built 2026-07-24):
 

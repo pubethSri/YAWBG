@@ -132,7 +132,7 @@
 </script>
 
 {#if results}
-  <div class="mx-auto flex max-w-md flex-col gap-4 p-4 pb-28">
+  <div class="content-col flex flex-col gap-4 p-4 pb-28">
     <!-- Stage ⓪ — the verdict. Stays on screen through every later stage: it is
          the headline, not a slide. -->
     <div class="flex items-start gap-3">
@@ -399,7 +399,7 @@
     <div
       class="fixed inset-x-0 bottom-0 border-t-2 border-ink-black bg-cream-blush p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
     >
-      <div class="mx-auto max-w-md">
+      <div class="content-col">
         {#if stage < 3}
           <button
             class="w-full rounded-[var(--radius-button)] border-2 border-ink-black bg-paper-white px-4 py-3 font-ui text-body font-bold text-ink-black"

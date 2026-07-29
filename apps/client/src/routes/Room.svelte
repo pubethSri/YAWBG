@@ -22,7 +22,7 @@
 </script>
 
 {#if socket.session?.code !== code}
-  <div class="mx-auto max-w-md p-6 font-ui text-body">
+  <div class="content-col p-6 font-ui text-body">
     <p>No session for this room. <a class="underline" href="/" onclick={(e) => { e.preventDefault(); navigate("/"); }}>Go home</a> to join.</p>
   </div>
 {:else if socket.roomState}
@@ -41,7 +41,7 @@
   {/if}
   <!-- RoundScreen pins an action bar to the bottom of the viewport, so this
        footer needs clearance to stay reachable when scrolled to the end. -->
-  <div class="mx-auto max-w-md p-4" class:pb-40={roundPhase}>
+  <div class="content-col p-4" class:pb-40={roundPhase}>
     <button class="font-ui text-body-sm text-slate-gray underline" onclick={leave}>Leave room</button>
   </div>
 {:else}
@@ -49,7 +49,7 @@
 {/if}
 
 {#if socket.lastError}
-  <p class="mx-auto max-w-md p-4 font-ui text-body-sm text-coral-blaze">
+  <p class="content-col p-4 font-ui text-body-sm text-coral-blaze">
     error: {socket.lastError.code} — {socket.lastError.message}
   </p>
 {/if}

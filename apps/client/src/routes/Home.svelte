@@ -30,7 +30,7 @@
   });
 </script>
 
-<div class="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 p-6">
+<div class="content-col flex min-h-screen flex-col justify-center gap-6 p-6">
   <h1 class="rotate-[-2deg] self-start rounded-[var(--radius-card)] bg-sunburst-yellow px-4 py-2 font-shout text-hero">
     YAWBG
   </h1>

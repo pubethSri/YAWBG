@@ -90,6 +90,207 @@
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 }
 
+/* ── Responsive (docs/06 "Responsive behavior (both screens)") ───────────────
+   Principle: **breakpoints reveal, they don't add.** The same components and
+   the same information hierarchy exist at every size; a larger screen only
+   inlines what a phone puts behind a tap. Nothing becomes reachable *only* on
+   a big screen — that would break the display-optional principle in docs/05
+   the same way putting a public fact only on the TV would.
+
+   The display view is landscape-first and is NOT a breakpoint of the player
+   view (docs/06). Nothing here applies to it; it sizes off `--text-d-*` and
+   the Stage's container queries instead.
+
+   Two custom variants, because neither non-phone case is really a width case:
+
+   - `lsphone` — a landscape phone is defined by being **short**, not by being
+     wide. A width query cannot tell a 740x360 phone from a 740px-wide desktop
+     window, and only the former needs the board beside the controls rather
+     than above them. Height is the honest signal, so the query asks about it.
+   - `wide` — where the board's ~600px cap and a side column that can hold a
+     House board both fit. Below this the side column would be too narrow to
+     inline anything useful, so the phone stack is still the better answer.
+     Deliberately not `md` (48rem): a portrait tablet has the width for a wide
+     board but not for a board *plus* a column.
+
+   The height clause on `wide` is not decoration. A 1100x400 window is landscape
+   AND wider than 64rem, so without it both queries match and the later rule
+   wins — which would hand a 400px-tall viewport a 600px board. The two are
+   mutually exclusive by construction instead, and `lsphone` is the one that
+   claims short viewports. 30.0625rem is 481px: exactly one pixel past
+   `max-height: 30rem`, so they can never both match.
+
+   Spelled `max-height` / `min-width` rather than CSS range syntax on purpose:
+   the `@custom-variant` parser accepts the legacy form and silently emits
+   NOTHING for `(height <= 30rem)`. A variant that generates no rule fails
+   invisibly — the class stays in the markup and simply never matches — so the
+   hand-written media queries below use the same spelling, to keep the two
+   definitions comparable by eye. */
+@custom-variant lsphone (@media (orientation: landscape) and (max-height: 30rem));
+@custom-variant wide (@media (min-width: 64rem) and (min-height: 30.0625rem));
+
+/* The one width rule every conventional screen shares (docs/06 "The rest of
+   the player view"): cap the content column and centre it. A form or a roster
+   stretched across a 1440px laptop is precisely what "looks like a
+   placeholder" means, and the lobby is the first screen a desktop playtester
+   ever sees.
+
+   It widens one step at tablet+ rather than staying at the phone's 28rem.
+   Holding a 448px column on a laptop trades "stretched" for "phone emulator
+   in the middle of a monitor", which fails the same exit test from the other
+   side. 34rem is a step, not a stretch: the board editor's 5x5 grid goes from
+   ~80px cells to ~100px, which is the whole visible effect. No new component,
+   no reflow, nothing revealed. */
+@utility content-col {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 28rem;
+  @media (min-width: 48rem) {
+    max-width: 34rem;
+  }
+}
+
+/* RoundScreen's three layouts (docs/06 Screen 2 + "Responsive behavior").
+   Layout lives here rather than as arbitrary variants in the markup, following
+   the Stage precedent below — three grid definitions read as three layouts,
+   where the same thing spelled as utilities reads as noise.
+
+   **One DOM, one source order, three placements.** The reading order is
+   banner → strip → board → aside → others in every layout, so the
+   accessibility tree and the tab order never depend on the viewport. Only
+   `grid-area` moves.
+
+   The columns are derived from one set of numbers so the pinned action bar can
+   line up with the grid above it without anyone re-typing a width.
+
+   **These rules are unlayered and Tailwind's utilities are not** (v4 emits
+   `@layer utilities`, and unlayered CSS beats every layer). That is deliberate
+   and load-bearing: it is what lets a media query here turn off the markup's
+   `sticky`, `-mx-4` and `pb-40` without an `!important` or a pile of
+   `lsphone:` variants on the element. It also means anything set here wins
+   over a utility of the same name on the same element — keep these rules to
+   layout only. */
+:root {
+  --round-main: 37.5rem; /* the ~600px board cap docs/06 specifies */
+  --round-aside: 20rem;
+  --round-gap: calc(var(--spacing-unit) * 2);
+  --round-wide: calc(var(--round-main) + var(--round-aside) + var(--round-gap));
+}
+
+.round-layout {
+  display: grid;
+  gap: var(--round-gap);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "banner" "strip" "board" "aside" "others";
+  width: 100%;
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
+.round-banner { grid-area: banner; }
+.round-strip { grid-area: strip; }
+.round-board { grid-area: board; }
+.round-others { grid-area: others; }
+
+/* Inlined only where there is room for it; the phone reaches the same facts
+   through the House chip and the stage strip. `display: none` (rather than
+   rendering it conditionally in Svelte) also keeps it out of the
+   accessibility tree, so nothing is announced twice on a phone. */
+.round-aside {
+  grid-area: aside;
+  display: none;
+}
+
+/* Tablet: the same one-column stack, one step wider — matching `content-col`
+   so the round screen and every other screen share an edge. Declared BEFORE
+   the two blocks below on purpose: they carry the same specificity, so source
+   order is what lets a landscape phone that is also 48rem wide (a 900x400
+   window matches both) keep its own layout. */
+@media (min-width: 48rem) {
+  .round-layout,
+  .round-actions-inner {
+    max-width: 34rem;
+  }
+}
+
+/* Landscape phone: board left at a height-derived size, controls right.
+   The board is sized off `vh` because in this layout height is the binding
+   constraint — 50% is only there to stop a very wide, very short window from
+   handing the board more than half the screen. */
+@media (orientation: landscape) and (max-height: 30rem) {
+  .round-layout {
+    max-width: none;
+    grid-template-columns: min(62vh, 50%) minmax(0, 1fr);
+    grid-template-areas:
+      "board banner"
+      "board strip"
+      "board actions"
+      "board others";
+    grid-template-rows: auto auto auto 1fr;
+    align-items: start;
+    /* The phone layout reserves room for the pinned bar; here there isn't one.
+       Unlayered, so it beats the `pb-40` utility in the markup — see the note
+       on cascade layers at the top of the responsive section. */
+    padding-bottom: var(--round-gap);
+  }
+
+  /* The action bar joins the flow here instead of being pinned. A fixed bar
+     costs ~72px of a ~360px viewport, and it is the one element that can
+     afford to scroll away when the board is already fully visible. */
+  .round-actions {
+    position: static;
+    grid-area: actions;
+    border: 0;
+    background: none;
+    padding: 0;
+  }
+
+  .round-actions-inner { max-width: none; }
+
+  /* Sticky is pointless in a pane that doesn't scroll independently, and the
+     phone layout's full-bleed bleed would leak into the column. */
+  .round-banner {
+    position: static;
+    margin-inline: 0;
+    padding-inline: 0;
+    border-bottom: 0;
+  }
+}
+
+/* Tablet / desktop: the board takes its cap and the freed space inlines the
+   House board and the full round list — what the phone puts behind the House
+   chip and the stage strip. Nothing here is reachable ONLY at this size. */
+@media (min-width: 64rem) and (min-height: 30.0625rem) {
+  .round-layout {
+    max-width: none;
+    justify-content: center;
+    align-items: start;
+    grid-template-columns: var(--round-main) var(--round-aside);
+    grid-template-areas:
+      "banner aside"
+      "strip  aside"
+      "board  aside"
+      "others aside";
+    grid-template-rows: auto auto auto 1fr;
+  }
+
+  /* `flex` here, not in the markup: this rule is unlayered and would beat a
+     Tailwind `flex` utility on the same element anyway. The direction and gap
+     stay as utilities — nothing here touches those. */
+  .round-aside { display: flex; }
+
+  .round-banner {
+    position: static;
+    margin-inline: 0;
+    padding-inline: 0;
+    border-bottom: 0;
+  }
+
+  /* Span the whole grid, so Pass sits under the board's left edge and the
+     resolved count under the aside's right edge. */
+  .round-actions-inner { max-width: var(--round-wide); }
+}
+
 /* The tabletop texture (docs/07 "The tabletop texture"). Declared once, on the
    canvas, and nowhere else — every Paper White surface occludes it by being
    opaque, and no component re-declares it.

@@ -86,7 +86,7 @@
   }
 </script>
 
-<div class="mx-auto flex max-w-md flex-col gap-6 p-6">
+<div class="content-col flex flex-col gap-6 p-6">
   <div class="rotate-[-2deg] self-start rounded-[var(--radius-tag)] bg-sunburst-yellow px-4 py-2 font-shout text-[28px]">
     {roomState.code}
   </div>
