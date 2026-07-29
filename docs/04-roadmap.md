@@ -18,6 +18,13 @@ shipped it structurally sound but visually sparse. Both are now **built** —
 layout). The rest of M5 (motion pass, player-view responsive, PWA manifest)
 stays in M5 and resumes after M5.5.
 
+**Reordered again after playtest #1** (2026-07-29): **M6 moves back behind the
+rest of M5.** The reason M6 was ahead — get a build in friends' hands for
+feedback — was satisfied by a local LAN playtest that needed no deployment, and
+the developer is away from the deploy site, so M6's exit test (a public URL, no
+build team in the room) is unreachable regardless. The remaining M5 slices feed
+a verdict that *is* reachable. Full reasoning at the top of M6 below.
+
 ## Exit-test ledger
 
 Milestones are marked done when their **code** is built and verified. Several
@@ -41,7 +48,7 @@ Three tiers of verification, and they are not interchangeable:
 | M4 | "a board screenshot gets posted to the group chat unprompted" | ⏳ not observed at playtest #1 — watch for it next time |
 | M5 | "looks deliberate on a phone, a tablet and a laptop; nothing looks like a placeholder" | ⏳ phone confirmed great at playtest #1; tablet/laptop + the responsive pass are still outstanding |
 | M5.5 | "the room keeps watching after the game is over, and somebody says 'wait, go back to that one'" | ⏳ not separately reported at playtest #1 (see the balance caveat in the log — the game may not have reached a tense ending) |
-| M6 | "friends play a full game on the public URL with nobody from the build team in the room" | ⏳ **untouched** — playtest #1 was local LAN with the build team present |
+| M6 | "friends play a full game on the public URL with nobody from the build team in the room" | ⏳ **untouched** — playtest #1 was local LAN with the build team present. Unreachable until the developer is back at the deploy site, which is why M6 was reordered behind M5 on 2026-07-29 |
 
 **`09-display-stage.md`'s 25-step manual test passed on 2026-07-24** — tier 2,
 solo. It is evidence that the Stage is correct, and it is *not* evidence for
@@ -69,24 +76,26 @@ What it settled and what it raised:
    gameplay." This is strong evidence for M2's exit test and for M5's phone
    verdict; it is *not* a substitute for the M3 / M4 / M5.5 room observations,
    which nobody reported hitting specifically.
-2. **Board editor friction (→ open question, next session).** The dump/arrange
-   split is understandable, but **you cannot edit an existing name in dump
-   mode** — by design, editing lives behind the pencil in arrange mode
-   (`06-key-screens.md`). A playtester expected to fix a typo without switching
-   modes. This is exactly the "if real fills feel awkward, revisit the mode
-   split" escape hatch `06` reserved. **Decision deferred:** widen dump mode to
-   allow in-place edits, or make the two-mode split more legible. Do not change
-   the editor before that discussion.
-3. **Pacing: `drawsPerRound: 1` felt slow (→ open question, next session).**
-   With one number a round the House crawled, and every player finished their
-   board *before* it bingoed — so the doom-clock race, which is the tension, was
-   gone. The user notes this is entangled with social generosity (how freely the
-   table lets each other lock), so it is not purely a number. **Candidate:**
-   raise the default `drawsPerRound` (and/or revisit `numberPoolSize` /
-   `houseBingoTarget`, the other pacing levers in `01-game-design.md`). This is
-   the "revisit pacing defaults after real games" item already parked in M8 —
-   it now has its first data point. Do not change the default before the
-   discussion; it may want more than one game's evidence.
+2. **Board editor friction — ✅ settled 2026-07-29.** The dump/arrange split was
+   understandable, but you could not edit an existing name in dump mode; a
+   playtester expected to fix a typo without switching modes. This was exactly
+   the "if real fills feel awkward, revisit the mode split" escape hatch `06`
+   reserved. **Decided: dump mode now edits in place, and the split stands** —
+   `06`'s rationale is *writing* vs *placing*, and a typo fix is writing. Dump
+   still gets no placement (no selection, no swap). Built and verified the same
+   day; see `06-key-screens.md` for the reasoning and the one gap left open
+   (pool chips).
+3. **Pacing: `drawsPerRound: 1` felt slow — ✅ settled 2026-07-29.** With one
+   number a round the House crawled and every player finished their board
+   *before* it bingoed, so the doom-clock race was gone. **Decided: the default
+   is now 2**, on one playtest, because the House half of the race turned out to
+   have no social component — a 20,000-game model puts House bingo at ~42 rounds
+   at `drawsPerRound: 1` against a hard ≥25-round floor on filling a board (a
+   player locks at most one cell per round). No table behaviour closes a
+   17-round gap. The full table and the part that *is* still social — real fill
+   rates are below 1/round, so `numberPoolSize: 100` is the next lever if boards
+   end too empty — are in `01-game-design.md`'s † note. This also discharges
+   M8's "revisit pacing defaults after real games" item for `drawsPerRound`.
 
 ## Design runway (now, before/alongside M0)
 
@@ -295,26 +304,35 @@ somebody says "wait, go back to that one."
 
 ## M6 — Ship it *(first public build; playtesting starts here)*
 
-**Open sequencing question (raised 2026-07-27, decide next session).** M6 was
-pulled ahead of decks/admin specifically to get a build in friends' hands for
-playtest feedback (see the top of this doc). Playtest #1 delivered that feedback
-**without a deployment** — a local LAN game was enough. Meanwhile the developer
-is **away from the deployment site** (the org VM; see `08-deployment.md` and the
-*ito* migration notes), so the real cutover cannot happen now; only a *local*
-replication of it (docker build, `deploy/compose.yml` up, Caddy config dry-run)
-is possible. So the original justification for M6-first is weaker than it was.
-Two ways to go, to be weighed next session:
+**Sequencing question resolved 2026-07-29: M6 moves behind the rest of M5.**
+M6 was pulled ahead of decks/admin specifically to get a build in friends' hands
+for playtest feedback (see the top of this doc). Playtest #1 delivered that
+feedback **without a deployment** — a local LAN game was enough — which removed
+the original reason for M6-first. Meanwhile the developer is **away from the
+deployment site** (the org VM; see `08-deployment.md` and the *ito* migration
+notes), so the real cutover cannot happen now.
 
-- **Keep M6 next, do the deployment-*rehearsal* locally** — build the image,
-  stand up compose, exercise the WS-behind-proxy path and the operability items
-  below against a local proxy, so the eventual real cutover is a config swap
-  rather than a debugging session. Defer only the org-VM-specific final step.
-- **Reorder again** — slot the remaining M5 slices (responsive pass, motion,
-  PWA) and/or the playtest-driven fixes (the two open questions above) ahead of
-  M6, since another local playtest is possible any time and deployment is
-  currently blocked on location, not on code.
+The deciding argument: **M6's exit test is unreachable from here.** It needs a
+public URL and a room with nobody from the build team in it. A local rehearsal
+would produce no verdict, while the remaining M5 slices feed a verdict that
+*is* reachable (M5's tablet/laptop observation) and raise the quality of the
+next local playtest, which can happen any time.
 
-Neither is chosen yet. The rest of M6 as specced:
+**New order: the remaining M5 slices (cohesion audit, motion, player-view
+responsive, PWA) → M6 → M7 → M8.** The two playtest-driven fixes above were
+landed immediately on 2026-07-29 rather than being slotted into a milestone;
+they were a handful of lines each.
+
+M6 itself is unchanged and still fully specced — it is waiting on *location*,
+not on code or on a decision. When it starts, the local rehearsal (docker build,
+`deploy/compose.yml` up, WS-behind-proxy dry-run against a local Caddy) is still
+the right first step, so the eventual cutover is a config swap rather than a
+debugging session. One thing that got *more* important since it was written: the
+heartbeat fix means real pings now go out every 30 s, so an edge proxy that
+severs quiet sockets faster than that reintroduces the exact symptom that bug
+produced — see the `proxy_read_timeout` row in `08-deployment.md`.
+
+The rest of M6 as specced:
 
 Cutover per `08-deployment.md` — shared org VM behind Caddy, compose, the
 existing deploy workflow. Decks and admin are deliberately *not* here: the

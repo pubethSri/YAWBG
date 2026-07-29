@@ -136,7 +136,7 @@ describe("M2 round loop", () => {
     expect(s.round!.number).toBe(1);
     expect(s.round!.topic).not.toBeNull();
     expect(s.round!.queue).toEqual([]);
-    expect(s.round!.drawnNumbers).toHaveLength(1); // drawsPerRound default
+    expect(s.round!.drawnNumbers).toHaveLength(2); // drawsPerRound default
     expect(s.round!.allDrawn).toEqual(s.round!.drawnNumbers);
 
     // House: a conventional card — column c drawn from its own fifth of the pool.

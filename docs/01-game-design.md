@@ -141,7 +141,7 @@ generalizes this via a communal pool:
 | Setting | Values | Default | Notes |
 |---|---|---|---|
 | `numberPoolSize` | 75 / 100 | 75 | 75 ≈ house bingo around draw 40; 100 runs longer |
-| `drawsPerRound` | 1–3 | 1 † | N numbers advance the House per round, but only ONE topic (attached to the first). Compresses game length without cutting fun rounds |
+| `drawsPerRound` | 1–3 | 2 † | N numbers advance the House per round, but only ONE topic (attached to the first). Compresses game length without cutting fun rounds |
 | `houseFreeCenter` | on / off | on | Free center makes the House faster |
 | `houseBingoTarget` | 1 / 2 lines | 1 | 2 lines ≈ a longer game; alternative pacing lever to `drawsPerRound` |
 | `houseBoardVisibility` | `full` / `progress` / `hidden` | `full` | `full`: the doom clock on every screen. `progress`: abstract only ("House needs 2 more for a line"). `hidden`: pure jump-scare ending |
@@ -152,12 +152,34 @@ generalizes this via a communal pool:
 | `lastCall` | on / off | off | One final topic + lock window after House bingo |
 | `deckIds` | multi-select | `general` | Selected decks are merged and shuffled together |
 
-† **Under review after playtest #1 (2026-07-27).** At `drawsPerRound: 1` with 4
-players / 75-pool, every player finished their board before the House bingoed —
-the doom-clock race, which is the tension, never happened. Raising the default
-is a live candidate (see `04-roadmap.md`'s playtest log); it's entangled with
-how freely a table lets each other lock, so it wants more than one game's
-evidence before the default moves.
+† **Raised from 1 to 2 on 2026-07-29**, after playtest #1 reported that every
+player finished their board before the House bingoed — so the doom-clock race,
+which is the tension, never happened.
+
+The move was made on one playtest because the *House* half of the race has no
+social component: it is determined entirely by the settings, and a 20,000-game
+model of `Room.ts`'s House build says so.
+
+| pool | `drawsPerRound` | rounds to House bingo (p10 / median / p90) |
+|---|---|---|
+| 75 | 1 | 28 / **42** / 54 |
+| 75 | 2 | 14 / **21** / 27 |
+| 75 | 3 | 10 / **14** / 18 |
+| 100 | 2 | 19 / **28** / 36 |
+
+Set that against the ceiling on the player side: **a player locks at most one
+cell per round**, so a 25-cell board cannot be filled in fewer than 25 rounds no
+matter how the table behaves. At `drawsPerRound: 1` the House took ~42 — a
+~17-round margin in which every board was already finished. No amount of table
+stinginess closes that gap, which is why one game was enough evidence to move
+the default.
+
+At 2 the House lands at ~21 rounds, comfortably inside the 25-round floor, so
+the clock is a live threat for the whole game and boards end mostly-but-not-fully
+filled. What is *still* social, and still wants more games: real tables pass on
+some rounds, so the true fill rate is below 1/round. If boards end up feeling
+*too* empty at 21 rounds, the next lever is `numberPoolSize: 100` (House at ~28),
+not `drawsPerRound: 3` — 3 is a short-game setting, not a fix.
 
 Not settings (fixed rules): duplicate names allowed; players fill all 25 cells
 (no player free-center); one lock per round; locks permanent.

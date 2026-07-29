@@ -84,6 +84,19 @@
   let selected = $state<number | null>(null);
   let editing = $state<{ kind: "cell" | "pool"; index: number; value: string } | null>(null);
 
+  // What a tap on a grid cell means depends on the mode. docs/06 splits the
+  // editor by "writing names" vs "placing names" — so fixing a typo belongs to
+  // dump, and dump opens the same edit sheet arrange's pencil does. What dump
+  // still doesn't get is placement: no selection, no swap. Empty cells stay
+  // inert there; they fill by typing, which is the whole point of the mode.
+  function activateCell(index: number) {
+    if (mode === "arrange") {
+      tapCell(index);
+      return;
+    }
+    if (board?.cells[index]?.name != null) openEdit("cell", index);
+  }
+
   function tapCell(index: number) {
     if (me?.fillDone || reserved.has(index)) return;
     if (selected === null) {
@@ -115,6 +128,14 @@
     selected = null;
   }
 
+  // Closing the sheet in dump mode hands focus back to the dump input, so a
+  // typo fix doesn't cost the player their place in a rapid-fire entry run.
+  // The mode $effect can't do this: neither `mode` nor `dumpInput` changed.
+  function closeEdit() {
+    editing = null;
+    if (mode === "dump") dumpInput?.focus();
+  }
+
   function saveEdit() {
     if (!editing) return;
     const trimmed = editing.value.trim();
@@ -124,13 +145,13 @@
     } else if (trimmed) {
       socket.writePool(editing.index, trimmed);
     }
-    editing = null;
+    closeEdit();
   }
 
   function clearEdit() {
     if (!editing) return;
     if (editing.kind === "cell") socket.clearCell(editing.index);
-    editing = null;
+    closeEdit();
   }
 
   function toggleReady() {
@@ -249,11 +270,11 @@
             class:bg-cream-blush={cell.name === null}
             class:border-dashed={cell.name === null}
             style={selected === i ? "box-shadow: var(--shadow-ring); transform: scale(1.05);" : ""}
-            onclick={() => (mode === "arrange" ? tapCell(i) : undefined)}
+            onclick={() => activateCell(i)}
             onkeydown={(e) => {
-              if ((e.key === "Enter" || e.key === " ") && mode === "arrange") {
+              if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                tapCell(i);
+                activateCell(i);
               }
             }}
           >
@@ -327,8 +348,8 @@
       class="fixed inset-0 z-10 flex items-end bg-ink-black/40"
       role="button"
       tabindex="0"
-      onclick={(e) => { if (e.target === e.currentTarget) editing = null; }}
-      onkeydown={(e) => { if (e.key === "Escape") editing = null; }}
+      onclick={(e) => { if (e.target === e.currentTarget) closeEdit(); }}
+      onkeydown={(e) => { if (e.key === "Escape") closeEdit(); }}
     >
       <div class="w-full rounded-t-[var(--radius-card)] bg-paper-white p-4">
         <p class="mb-2 font-ui text-body-sm font-semibold text-slate-gray">

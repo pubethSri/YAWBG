@@ -26,7 +26,7 @@ export type Settings = z.infer<typeof SettingsSchema>;
 export function defaultSettings(): Settings {
   return {
     numberPoolSize: 75,
-    drawsPerRound: 1,
+    drawsPerRound: 2,
     houseFreeCenter: true,
     houseBingoTarget: 1,
     houseBoardVisibility: "full",

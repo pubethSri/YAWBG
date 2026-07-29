@@ -27,6 +27,9 @@ activities instead of forcing a placement decision 25 times mid-brainstorm.
   idea belongs to the other bucket.
 - Entries land in row-major order into open cells; placement is refined later
   in arrange mode.
+- **Tapping a filled cell opens the edit sheet** — the same one arrange's pencil
+  opens. Empty cells are inert here; they fill by typing. See the escape-hatch
+  note below for why this is dump's job and not a violation of the split.
 
 **Arrange mode** — for the "where" activity:
 
@@ -61,13 +64,30 @@ activities instead of forcing a placement decision 25 times mid-brainstorm.
 mode split before polishing it.*
 
 **Playtest #1 (2026-07-27) pulled that hatch.** A player expected to fix a typo
-in **dump mode** and couldn't — dump is write-only by design, and editing an
-existing name means switching to arrange mode and tapping its pencil. The split
-was *understood*, but the write-only dump felt like a dead end mid-entry.
-Options for next session (not yet decided): let dump mode edit the cell it just
-filled / any filled cell in place, or make the "editing lives in arrange" split
-more legible (e.g. an affordance on a filled dump entry). See `04-roadmap.md`'s
-playtest log — do not touch `BoardEditor.svelte` before that discussion.
+in **dump mode** and couldn't — dump was write-only, and editing an existing
+name meant switching to arrange mode and tapping its pencil. The split was
+*understood*; the write-only dump felt like a dead end mid-entry.
+
+**Resolved 2026-07-29: dump mode edits in place, and the mode split stands.**
+The decision turned on re-reading this section's own rationale. The split is
+between *writing* names and *placing* them — and fixing a typo is writing. The
+built version had drawn a stricter line than the rationale argues for
+(append-only vs everything-else), so widening dump to in-place editing is more
+faithful to the design than the original build was, not a retreat from it.
+
+What dump still does **not** get is placement: no selection, no swap, no
+reordering. That is the line that carries the meaning, and it is intact.
+
+Implementation is deliberately small — `BoardEditor.svelte`'s grid tap routes
+through one `activateCell()` that branches on mode, and the edit sheet
+(`openEdit`/`saveEdit`) was already mode-independent, so nothing new was built.
+Closing the sheet in dump mode returns focus to the dump input, so a typo fix
+doesn't cost the player their place in a rapid-fire run.
+
+**Known remaining gap:** pool chips are still hidden entirely in dump mode
+(they render only in arrange, or once ready), so a *pool* typo has the same dead
+end plus an invisibility problem. Deliberately left alone — K defaults to 0, so
+no playtest has hit it yet. Fix it the same way if one does.
 
 ## Screen 2: Open floor
 

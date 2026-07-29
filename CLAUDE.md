@@ -17,7 +17,12 @@ lists without flagging it.
 The post-M2 order is **M3 display → M4 results → M5 polish & responsive → M6
 deploy & playtest → M7 decks & admin → M8 hardening**: polish and deployment
 were moved ahead of decks/admin so friends can playtest a real build while
-local work continues. The display ships *styled* in M3 (legibility across a
+local work continues. **M6 moved back behind the rest of M5 on 2026-07-29**
+(after playtest #1): the reason it was early — get a build in friends' hands —
+was satisfied by a *local LAN* playtest that needed no deployment, and the
+developer is away from the org VM, so M6's exit test (public URL, no build team
+in the room) is unreachable regardless. M6 is blocked on **location, not code**.
+Next up is therefore the rest of M5. The display ships *styled* in M3 (legibility across a
 room is what its exit test measures); M5 owns cross-surface cohesion, motion
 timing and the player-view responsive pass.
 
@@ -63,6 +68,27 @@ is the only suite that runs with the heartbeat **on** (every other passes
 healthy idle socket surviving, and a genuinely silent one still being reaped via
 a raw TCP client that completes the upgrade and then never pongs, since a
 conforming `WebSocket` always answers a ping and cannot fake a half-open socket.
+
+Playtest #1 decisions (2026-07-29) — all three open questions are now closed:
+
+- **`drawsPerRound` defaults to 2, not 1.** Playtest #1 reported every player
+  finishing their board before the House bingoed. The default moved on *one*
+  game because the House half of the race has no social component: a 20,000-game
+  model of `Room.ts`'s House build puts bingo at a median **42** rounds at
+  `drawsPerRound: 1` (21 at 2, 14 at 3, 75-pool), against a hard floor of **25**
+  rounds to fill a board — a player locks at most one cell per round. No table
+  behaviour closes a 17-round gap. What is still social: real tables pass some
+  rounds, so if boards end too empty the next lever is `numberPoolSize: 100`
+  (House ~28), **not** `drawsPerRound: 3`. Table and reasoning live in
+  `docs/01`'s † note. `round.test.ts` pins the default — it asserts 2 drawn
+  numbers on the first round.
+- **Dump mode edits in place; the two-mode split stands.** `docs/06`'s rationale
+  is *writing* names vs *placing* them, so a typo fix is writing — the original
+  build had drawn a stricter line (append-only) than the doc argues for. Dump
+  still gets no placement: no selection, no swap. The grid tap routes through
+  one `activateCell()` that branches on mode; the edit sheet was already
+  mode-independent, so nothing new was built. Pool chips remain hidden in dump
+  mode — a known, deliberately-unfixed gap (K defaults to 0).
 
 M1 notes that still hold: pool distribution uses a round-robin *offset* — each
 player's whole K-name block rotates to exactly one other player, not a full
