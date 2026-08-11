@@ -1,29 +1,40 @@
 # 11 — Cross-game portal & shared session assessment
 
-> ## ✅ Picked up 2026-08-04 — superseded by `12-hub-and-deployment.md`.
+> ## ⚠️ Considered twice, declined twice. Not a plan.
 >
-> Parked on 2026-07-29, unparked on 2026-08-04 when the developer returned to
-> the deployment site. It entered through the roadmap, as the parked banner
-> required. **`12-hub-and-deployment.md` is the plan of record; read that for
-> anything you intend to act on.**
+> **Parked 2026-07-29. Picked up 2026-08-04. Dropped 2026-08-11.** Nothing in
+> this document is scheduled, committed to, or on any milestone.
 >
-> What this document is still good for, and why it is kept rather than rewritten:
+> On 2026-08-04, with the developer back at the deployment site, Option A was
+> briefly adopted and specified in full: a static `cruzhub` landing page across
+> three apps, flat subdomains, and an auto-submitting deep link carrying name and
+> code. **That was reversed on 2026-08-11 in favour of the plainest thing that
+> works — each app is simply its own Caddy vhost at its own hostname, with no
+> shared entry point at all.** The portal was never the blocking problem;
+> deploying YAWBG was, and the hub was scope wrapped around it.
 >
-> - **§1's two-codebase comparison is the evidence** behind the decision. It is
->   accurate as of 2026-07-27 and is what makes "the handoff surface is tiny"
->   a finding rather than a hope.
-> - **§2–4's option analysis produced the answer.** Option A was chosen. Its
->   reasoning against a merge (§4) is unchanged and doc 12 §10 restates the wall.
-> - **§5's centralisation candidates are still open**, and deliberately not
->   scheduled: shared admin OIDC (§5.1) and the analytics session envelope
->   (§5.2). Doc 12 does not settle either.
+> **`08-deployment.md` is the plan of record for deployment.** It covers the
+> nginx → Caddy migration and YAWBG's vhost, and nothing here changes it.
 >
-> Two things here are now out of date. **§7's question lists are largely
-> answered** — doc 12 §5 closes the deep-link and session-conflict questions for
-> both games, and closes the code-allocation question by not building a registry.
-> And this document describes a **two-app** world: *Pastebin* (`C:\Pastebin`) was
-> designed and built a week after it was written, and doc 12 is the three-app
-> version.
+> What this document is still good for:
+>
+> - **§1's two-codebase comparison** is accurate as of 2026-07-27 and is real
+>   research — it is what establishes that the handoff surface between these apps
+>   is tiny, should the question ever return.
+> - **§4's reasoning against a merge** is unchanged and still governing. Separate
+>   codebases, separate containers, independent deploys.
+> - **§5's centralisation candidates remain genuinely open**, and are the parts
+>   worth revisiting *before* the portal ever is: shared admin OIDC (§5.1) and
+>   the analytics session envelope (§5.2).
+>
+> **In particular, §7 is not a work queue.** It is a list of questions someone
+> *would* need to answer *if* the portal idea were taken up. Do not start on it
+> because it looks like a checklist. Note also that this document describes a
+> **two-app** world: *Pastebin* (`C:\Pastebin`) was built a week after it was
+> written and stays a LAN-only tool — it is not deployed.
+>
+> If this is picked up a third time, it enters through `04-roadmap.md` like
+> anything else — and whoever does should read the two paragraphs above first.
 
 **Status: assessment, no decision made, nothing built.** Written 2026-07-27 by
 reading both codebases (`C:\YAWBG` and `C:\ito`) at that date. This is the
@@ -301,7 +312,6 @@ change code for this — the output wanted is answers and cost estimates.
 **Is code-only join (no game picker) worth a service?** That's a product call,
 and it decides A vs B. Everything else in this doc follows from it.
 
-> **Answered 2026-08-04: no.** Option A, a static picker. The deciding argument
-> turned out not to be cost but honesty — with a third app that is not a game, a
-> bare 4-letter code is ambiguous to the *player*, not just the router. You
-> don't "play" a paste room. See `12-hub-and-deployment.md` §0 and §4.
+> **Answered 2026-08-11: the question is moot — there is no portal.** It was
+> briefly answered "no, use a static picker" on 2026-08-04, and then the picker
+> itself was dropped a week later. Each app is its own vhost. See the banner.

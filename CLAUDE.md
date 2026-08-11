@@ -10,8 +10,8 @@ drama** and **M4 — results, reveal & share** are built; the game plays start t
 finish and back again (`game.playAgain`), with a styled read-only display and a
 share-to-PNG export. The repo is a Bun workspaces monorepo alongside the design
 docs. **Next up is M6 — deploy**, whose plan of record is
-`docs/12-hub-and-deployment.md`. Build milestone by milestone; don't design or
-build against the roadmap's deferred lists without flagging it.
+`docs/08-deployment.md`. Build milestone by milestone; don't design or build
+against the roadmap's deferred lists without flagging it.
 
 The post-M2 order is **M3 display → M4 results → M5 polish & responsive → M6
 deploy & playtest → M7 decks & admin → M8 hardening**: polish and deployment
@@ -29,31 +29,24 @@ ships *styled* in M3 (legibility across a room is what its exit test measures);
 M5 owns cross-surface cohesion, motion timing and the player-view responsive
 pass.
 
-**M6 now also ships the `cruzhub` landing page across three apps** — YAWBG,
-*ito* (`C:\ito`) and *Pastebin* (`C:\Pastebin`, built through its M7 on
-2026-08-04). Read `docs/12-hub-and-deployment.md` before touching deployment,
-the hub, or anything cross-repo; it supersedes the parked assessment in
-`docs/11-cross-game-portal.md` and corrects `docs/08-deployment.md`. Three
-things about it that are easy to get wrong:
+**M6 is deployment only, and `docs/08-deployment.md` is its plan of record.**
+*ito* (`C:\ito`) and YAWBG become two vhosts on one edge Caddy on the org VM;
+the cutover is a proxy swap plus YAWBG's own stack. Three facts that survived
+the planning session on 2026-08-11 and are worth not re-deriving:
 
-- **The hub is a static page served by Caddy's `file_server`** — no container,
-  no server, no shared room registry, no code-only join. Those are v1 scope
-  walls in doc 12 §4, not omissions.
-- **The hub is the join form, and the deep link auto-submits.** `/?code=ABCD&name=Nok`
-  joins that room; `/?name=Nok&new=1` creates one. You land **in the room**, not
-  on a prefilled landing page — a hub that hands you to another form has added a
-  step, not removed one. This is the only cross-app coupling in the plan and all
-  three apps implement it identically. **Doc 12 §5's five rules are not
-  optional**; the two most missable are *if the deep-link code matches the
-  stored session's code, resume rather than join* (otherwise you take a second
-  seat in the room you're already in) and *on failure, fall back to the landing
-  with both fields prefilled and the error shown*. An earlier draft had the link
-  carry only the code; that was reversed in the same interview.
-- **Don't add an `import.meta.env.DEV` branch for hub-vs-own-landing.** Each
-  app's landing is permanent in production too — the display's QR points at a
-  room URL on the app's own origin. The hub is purely additive, so there is no
-  mode to guard, and a dev branch would guarantee the shipped path is the one
-  never exercised locally. Doc 12 §6.
+- **A cross-app landing page (`cruzhub`) was specified in full and then
+  dropped.** It was scope wrapped around the thing that actually needed doing.
+  `docs/11-cross-game-portal.md`'s banner records both the adoption and the
+  reversal — read it before re-opening the idea a third time. *Pastebin*
+  (`C:\Pastebin`, built through its M7 on 2026-08-04) stays a **LAN-only tool
+  and is not deployed**.
+- **Both containers listen on 3000.** Doc 08 used to say `ito:3001`; that was
+  leftover port-publishing thinking. Behind the `edge` network with no host
+  ports published, container DNS disambiguates and *ito* needs no port change.
+- **Three documents in ito's repo claim its deployment is dead** (`STATUS.md`,
+  `CLAUDE.md`, `docs/directions/README.md`: "the old box is gone"). It is live —
+  confirmed at the site. The cutover assumes it is *ito*'s nginx that hands over
+  80/443, so that contradiction is load-bearing, not cosmetic.
 
 **M5 is being built in slices**, each ending with a manual test the user runs
 before the next starts. Slice 1 — `docs/09-display-stage.md`'s Stage rebuild
@@ -474,8 +467,7 @@ These recur across all docs and should shape any new design work:
 | `docs/08-deployment.md` | Ship recipe: shared VM + Caddy vhosts, TLS modes, compose, deploy flow |
 | `docs/09-display-stage.md` | Display Stage layout + the tabletop texture; built, with an implementation postscript |
 | `docs/10-highlight-reel.md` | The results reel, the cheer mechanic, the v4 protocol shapes; built, with an implementation postscript |
-| `docs/11-cross-game-portal.md` | The two-codebase ito/YAWBG comparison and the three portal options; picked up and superseded by doc 12, kept as the evidence behind it |
-| `docs/12-hub-and-deployment.md` | **Plan of record for M6.** The cruzhub landing page across three apps, the subdomain topology, the edge Caddy stack, the deep-link contract, the dev story, per-app work, the ordered cutover, and every cross-repo conflict with its resolution |
+| `docs/11-cross-game-portal.md` | The two-codebase ito/YAWBG comparison and the three portal options. **Considered twice, declined twice** — not a plan; read its banner before re-opening the idea |
 | `decks/general.json` | The seed deck (60 topics), loaded into SQLite on boot |
 | `decks/general.example.json` | Schema reference — deliberately skipped by the seeder |
 

@@ -321,16 +321,17 @@ somebody says "wait, go back to that one."
 > done from anywhere. The PWA slice even argues for deploying first, since
 > install behaviour wants a real HTTPS origin to test against.
 >
-> M6 also now ships the **cruzhub** landing page across three apps — YAWBG,
-> *ito* and the new *Pastebin* (`C:\Pastebin`). Scope, topology, the deep-link
-> contract, the development story and the full ordered plan are in
-> `12-hub-and-deployment.md`, which supersedes the parked assessment in
-> `11-cross-game-portal.md`. **YAWBG's own share of the hub is small but not
-> zero:** `deploy/compose.yml` is already correct, and `routes/Home.svelte`
-> already reads `?code=` and already carries the stale-session guard that doc 12
-> §5 rule 3 needs — but the auto-submitting deep link (`?code=&name=`,
-> `?name=&new=1`, landing *in the room*) is new work in `Home.svelte`, and its
-> five rules are not optional. The operability list below is still the larger
+> **M6's scope is unchanged — deployment only.** A cross-app landing page
+> (`cruzhub`) was added to this milestone on 2026-08-04 and **removed again on
+> 2026-08-11**: it was scope wrapped around the thing that actually needed
+> doing. *ito* and YAWBG are simply two vhosts on one Caddy; *Pastebin*
+> (`C:\Pastebin`) stays a LAN-only tool and is not deployed. See
+> `11-cross-game-portal.md`'s banner for why, so it isn't re-opened a third
+> time.
+>
+> So the work here is exactly what `08-deployment.md` describes: migrate *ito*
+> from its own nginx to a shared edge Caddy, add YAWBG's vhost, deploy. Nothing
+> in `apps/client` changes for it. The operability list below is the larger
 > item.
 >
 > **New order: M6 → the remaining M5 slices → M7 → M8.**

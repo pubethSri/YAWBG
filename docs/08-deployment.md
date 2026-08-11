@@ -7,35 +7,26 @@ parts beats clever infrastructure.
 
 ## Topology decision
 
-**One org VM hosts every app behind a single edge proxy (Caddy), using
-name-based virtual hosts.** A dedicated fresh VM is the same recipe with fewer
-vhosts.
-
-> **Extended 2026-08-04 by `12-hub-and-deployment.md`**, which is the plan of
-> record for the actual cutover. It adds a third app (*Pastebin*) and a static
-> landing page (`cruzhub`) as a fourth vhost, and fixes the port error noted
-> below. This document remains the reference for *how* the proxy, TLS, compose
-> and SQLite care work; doc 12 is the reference for *what is being shipped and
-> in what order*.
+**One org VM hosts both *ito* and YAWBG behind a single edge proxy (Caddy),
+using name-based virtual hosts.** A dedicated fresh VM is the same recipe
+minus the *ito* vhost.
 
 ```
-DNS: cruzhub.<org-domain> ─┐                        ┌─► static hub page (file_server)
-DNS: yawbg.<org-domain>   ─┤                        ├─► yawbg container    (Bun :3000)
-DNS: ito.<org-domain>     ─┼─► org VM — Caddy :443 ─┤     SPA + /api + /ws
-DNS: paste.<org-domain>   ─┘                        ├─► ito container      (Bun :3000)
-                                                    └─► pastebin container (Bun :3000)
+DNS: yawbg.<org-domain>  ─┐                        ┌─► yawbg container (Bun :3000)
+                          ├─► org VM — Caddy :443 ─┤     SPA + /api + /ws
+DNS: ito.<org-domain>    ─┘                        └─► ito container   (Bun :3000)
 ```
 
-**Every app container listens on 3000.** An earlier version of this document
+**Both app containers listen on 3000.** An earlier version of this document
 said `ito:3001`; that was leftover port-publishing thinking. Behind the `edge`
 network with no host ports published, container DNS names disambiguate the
-services, so no app needs a distinct port and *ito* needs no port change at all.
+services, so neither app needs a distinct port and *ito* needs no port change
+at all.
 
-**A wildcard cert covers exactly one label**, so every vhost must sit at the
-same depth: `yawbg.<org-domain>` is covered by `*.<org-domain>`,
-`yawbg.cruzhub.<org-domain>` is not. Nesting app hostnames under the hub's was
-considered and rejected for this reason — it needs *more* DNS records, not
-fewer, plus a second wildcard.
+**No shared landing page.** A cross-app portal was assessed in
+`11-cross-game-portal.md`, briefly adopted, and **declined on 2026-08-11**:
+each app is simply its own vhost, reached at its own hostname. See that
+document's banner for the history so it isn't re-opened a third time.
 
 - Each app is one container with its own compose project → **independent
   deploys**; shipping YAWBG never touches *ito*.
@@ -66,12 +57,6 @@ fewer, plus a second wildcard.
     header X-Robots-Tag "noindex, nofollow"
 }
 
-cruzhub.example.org {
-    import site
-    root * /srv/hub
-    file_server
-}
-
 yawbg.example.org {
     import site
     reverse_proxy yawbg:3000
@@ -81,16 +66,13 @@ ito.example.org {
     import site
     reverse_proxy ito:3000
 }
-
-paste.example.org {
-    import site
-    reverse_proxy pastebin:3000
-}
 ```
 
-`noindex` is global rather than per-site on purpose: every one of these
-hostnames serves URLs containing a live room code, and a search engine holding
-one is the cheapest possible leak. It costs users nothing.
+The `(site)` snippet exists because file-based TLS means every vhost repeats
+the same two `tls` paths; one definition keeps them from drifting when the cert
+is renewed. `noindex` rides along with it: both hostnames serve URLs containing
+a live room code, and a search engine holding one is the cheapest possible
+leak. It costs users nothing.
 
 ### TLS — pick the mode matching what the org provides
 
@@ -153,8 +135,8 @@ networks:
     external: true
 ```
 
-*ito* joins the same `edge` network the same way, whenever it migrates to
-this VM.
+*ito* joins the same `edge` network the same way when it migrates off its own
+nginx — see the next section.
 
 ## Migrating the existing *ito* deployment
 
@@ -167,30 +149,37 @@ exactly the timeout trap in the requirements table above). Deploys run via a
 GitHub Actions workflow on a **self-hosted runner on the VM**: push to main →
 `git pull` → `docker compose up -d --build`.
 
-**Still true as of 2026-08-04** — confirmed by the developer at the site. Note
+**Still true as of 2026-08-11** — confirmed by the developer at the site. Note
 that three documents *in ito's own repo* (`STATUS.md`, `CLAUDE.md` and
 `docs/directions/README.md`) claim that deployment is shut down and "the old box
-is gone". They are stale; ito's brief asks for them to be verified against the
-VM and corrected. Resolving this contradiction was the single biggest unknown in
-planning the cutover.
+is gone". They are stale, and ito's cutover brief asks for them to be verified
+against the VM and corrected. Resolving this contradiction was the single
+biggest unknown in planning the cutover — step 4 below assumes it is *ito*'s
+nginx that hands over 80/443, and that being wrong is expensive to discover
+mid-session.
 
 One-time cutover to the shared-edge topology (brief downtime is fine):
 
-1. Add the three new DNS records (`cruzhub`, `yawbg`, `paste`), all pointing at
-   the existing VM IP. *ito*'s record does not move.
+0. **Rehearse locally first.** Build both images, run a local Caddy with this
+   same `Caddyfile`, a self-signed cert and two `hosts` entries, and leave a
+   WebSocket idle for **over two minutes**. That is the one thing a rehearsal
+   genuinely proves about the proxy, and it turns the cutover into a config
+   swap rather than a debugging session.
+1. Add the `yawbg` DNS record, pointing at the existing VM IP. *ito*'s record
+   does not move.
 2. `docker network create edge` on the VM.
 3. Stand up the edge Caddy stack **alongside the running nginx**, mounting the
-   **same wildcard cert pair** nginx uses today, with all four vhosts.
+   **same wildcard cert pair** nginx uses today, with both vhosts.
 4. In *ito*'s compose: drop the nginx prod overlay, drop the `3000:3000`
    port publish (this also closes today's TLS-bypass hole where the app is
    directly reachable over plain HTTP), join the `edge` network.
 5. Down *ito*'s old nginx, up Caddy — 80/443 change hands in one step. This is
    the only user-visible downtime, and it should be seconds.
-6. Deploy the YAWBG stack onto `edge`, then Pastebin's.
+6. Deploy the YAWBG stack onto `edge`.
 
 *ito*'s application code needs zero changes; the proxy swap is invisible to it.
-The full ordered plan, including the off-site rehearsal that should precede all
-of this, is `12-hub-and-deployment.md` §8.
+The scoped brief for the ito agent is
+`C:\ito\docs\directions\caddy-cutover-brief.md`.
 
 ## Deploy flow
 
