@@ -9,22 +9,51 @@ The design phase is complete (`docs/` holds the artifacts). **M0 — skeleton**,
 drama** and **M4 — results, reveal & share** are built; the game plays start to
 finish and back again (`game.playAgain`), with a styled read-only display and a
 share-to-PNG export. The repo is a Bun workspaces monorepo alongside the design
-docs. Next up is **M5 — Polish & responsive** (see `docs/04-roadmap.md`), whose
-display-Stage half is already specced in `docs/09-display-stage.md`. Build
-milestone by milestone; don't design or build against the roadmap's deferred
-lists without flagging it.
+docs. **Next up is M6 — deploy**, whose plan of record is
+`docs/12-hub-and-deployment.md`. Build milestone by milestone; don't design or
+build against the roadmap's deferred lists without flagging it.
 
 The post-M2 order is **M3 display → M4 results → M5 polish & responsive → M6
 deploy & playtest → M7 decks & admin → M8 hardening**: polish and deployment
 were moved ahead of decks/admin so friends can playtest a real build while
 local work continues. **M6 moved back behind the rest of M5 on 2026-07-29**
-(after playtest #1): the reason it was early — get a build in friends' hands —
-was satisfied by a *local LAN* playtest that needed no deployment, and the
-developer is away from the org VM, so M6's exit test (public URL, no build team
-in the room) is unreachable regardless. M6 is blocked on **location, not code**.
-Next up is therefore the rest of M5. The display ships *styled* in M3 (legibility across a
-room is what its exit test measures); M5 owns cross-surface cohesion, motion
-timing and the player-view responsive pass.
+(after playtest #1) because it was blocked on **location, not code** — the
+developer was away from the org VM and M6's exit test (public URL, no build team
+in the room) was unreachable regardless.
+
+**That block lifted on 2026-08-04 and M6 moved back in front: the new order is
+M6 → the rest of M5 → M7 → M8.** Same principle both times — *location is the
+scarce resource*. M5's leftovers are polish doable from anywhere; the PWA slice
+even wants a real HTTPS origin to test install behaviour against. The display
+ships *styled* in M3 (legibility across a room is what its exit test measures);
+M5 owns cross-surface cohesion, motion timing and the player-view responsive
+pass.
+
+**M6 now also ships the `cruzhub` landing page across three apps** — YAWBG,
+*ito* (`C:\ito`) and *Pastebin* (`C:\Pastebin`, built through its M7 on
+2026-08-04). Read `docs/12-hub-and-deployment.md` before touching deployment,
+the hub, or anything cross-repo; it supersedes the parked assessment in
+`docs/11-cross-game-portal.md` and corrects `docs/08-deployment.md`. Three
+things about it that are easy to get wrong:
+
+- **The hub is a static page served by Caddy's `file_server`** — no container,
+  no server, no shared room registry, no code-only join. Those are v1 scope
+  walls in doc 12 §4, not omissions.
+- **The hub is the join form, and the deep link auto-submits.** `/?code=ABCD&name=Nok`
+  joins that room; `/?name=Nok&new=1` creates one. You land **in the room**, not
+  on a prefilled landing page — a hub that hands you to another form has added a
+  step, not removed one. This is the only cross-app coupling in the plan and all
+  three apps implement it identically. **Doc 12 §5's five rules are not
+  optional**; the two most missable are *if the deep-link code matches the
+  stored session's code, resume rather than join* (otherwise you take a second
+  seat in the room you're already in) and *on failure, fall back to the landing
+  with both fields prefilled and the error shown*. An earlier draft had the link
+  carry only the code; that was reversed in the same interview.
+- **Don't add an `import.meta.env.DEV` branch for hub-vs-own-landing.** Each
+  app's landing is permanent in production too — the display's QR points at a
+  room URL on the app's own origin. The hub is purely additive, so there is no
+  mode to guard, and a dev branch would guarantee the shipped path is the one
+  never exercised locally. Doc 12 §6.
 
 **M5 is being built in slices**, each ending with a manual test the user runs
 before the next starts. Slice 1 — `docs/09-display-stage.md`'s Stage rebuild
@@ -445,6 +474,8 @@ These recur across all docs and should shape any new design work:
 | `docs/08-deployment.md` | Ship recipe: shared VM + Caddy vhosts, TLS modes, compose, deploy flow |
 | `docs/09-display-stage.md` | Display Stage layout + the tabletop texture; built, with an implementation postscript |
 | `docs/10-highlight-reel.md` | The results reel, the cheer mechanic, the v4 protocol shapes; built, with an implementation postscript |
+| `docs/11-cross-game-portal.md` | The two-codebase ito/YAWBG comparison and the three portal options; picked up and superseded by doc 12, kept as the evidence behind it |
+| `docs/12-hub-and-deployment.md` | **Plan of record for M6.** The cruzhub landing page across three apps, the subdomain topology, the edge Caddy stack, the deep-link contract, the dev story, per-app work, the ordered cutover, and every cross-repo conflict with its resolution |
 | `decks/general.json` | The seed deck (60 topics), loaded into SQLite on boot |
 | `decks/general.example.json` | Schema reference — deliberately skipped by the seeder |
 

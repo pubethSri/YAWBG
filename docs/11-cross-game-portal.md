@@ -1,18 +1,29 @@
 # 11 — Cross-game portal & shared session assessment
 
-> ## ⚠️ This is an artifact of ideas, not a plan.
+> ## ✅ Picked up 2026-08-04 — superseded by `12-hub-and-deployment.md`.
 >
-> **Parked 2026-07-29.** Nothing in this document is scheduled, committed to, or
-> on any milestone. It exists to capture thinking that was done once so it
-> doesn't have to be done again — not to describe work that is going to happen.
+> Parked on 2026-07-29, unparked on 2026-08-04 when the developer returned to
+> the deployment site. It entered through the roadmap, as the parked banner
+> required. **`12-hub-and-deployment.md` is the plan of record; read that for
+> anything you intend to act on.**
 >
-> In particular, **§7 is not a work queue.** It is a list of questions someone
-> *would* need to answer *if* the portal idea were ever taken up. Do not start
-> on it because it looks like a checklist, and do not treat anything here as a
-> requirement on M5–M8.
+> What this document is still good for, and why it is kept rather than rewritten:
 >
-> The roadmap (`04-roadmap.md`) is the only thing that says what happens next.
-> If this ever gets picked up, it enters through there like anything else.
+> - **§1's two-codebase comparison is the evidence** behind the decision. It is
+>   accurate as of 2026-07-27 and is what makes "the handoff surface is tiny"
+>   a finding rather than a hope.
+> - **§2–4's option analysis produced the answer.** Option A was chosen. Its
+>   reasoning against a merge (§4) is unchanged and doc 12 §10 restates the wall.
+> - **§5's centralisation candidates are still open**, and deliberately not
+>   scheduled: shared admin OIDC (§5.1) and the analytics session envelope
+>   (§5.2). Doc 12 does not settle either.
+>
+> Two things here are now out of date. **§7's question lists are largely
+> answered** — doc 12 §5 closes the deep-link and session-conflict questions for
+> both games, and closes the code-allocation question by not building a registry.
+> And this document describes a **two-app** world: *Pastebin* (`C:\Pastebin`) was
+> designed and built a week after it was written, and doc 12 is the three-app
+> version.
 
 **Status: assessment, no decision made, nothing built.** Written 2026-07-27 by
 reading both codebases (`C:\YAWBG` and `C:\ito`) at that date. This is the
@@ -289,3 +300,8 @@ change code for this — the output wanted is answers and cost estimates.
 
 **Is code-only join (no game picker) worth a service?** That's a product call,
 and it decides A vs B. Everything else in this doc follows from it.
+
+> **Answered 2026-08-04: no.** Option A, a static picker. The deciding argument
+> turned out not to be cost but honesty — with a third app that is not a game, a
+> bare 4-letter code is ambiguous to the *player*, not just the router. You
+> don't "play" a paste room. See `12-hub-and-deployment.md` §0 and §4.

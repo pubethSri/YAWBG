@@ -312,7 +312,31 @@ somebody says "wait, go back to that one."
 
 ## M6 — Ship it *(first public build; playtesting starts here)*
 
-**Sequencing question resolved 2026-07-29: M6 moves behind the rest of M5.**
+> **Re-sequenced 2026-08-04: M6 moves back in front of the remaining M5 slices,
+> and its scope grows a landing page.** The developer is back at the deployment
+> site, so the location block below is lifted. The reasoning is the mirror image
+> of the 2026-07-29 decision and rests on the same principle — **location is the
+> scarce resource.** M6 is blocked on being at the site and on nothing else,
+> while M5's leftovers (cohesion audit, motion pass, PWA) are polish that can be
+> done from anywhere. The PWA slice even argues for deploying first, since
+> install behaviour wants a real HTTPS origin to test against.
+>
+> M6 also now ships the **cruzhub** landing page across three apps — YAWBG,
+> *ito* and the new *Pastebin* (`C:\Pastebin`). Scope, topology, the deep-link
+> contract, the development story and the full ordered plan are in
+> `12-hub-and-deployment.md`, which supersedes the parked assessment in
+> `11-cross-game-portal.md`. **YAWBG's own share of the hub is small but not
+> zero:** `deploy/compose.yml` is already correct, and `routes/Home.svelte`
+> already reads `?code=` and already carries the stale-session guard that doc 12
+> §5 rule 3 needs — but the auto-submitting deep link (`?code=&name=`,
+> `?name=&new=1`, landing *in the room*) is new work in `Home.svelte`, and its
+> five rules are not optional. The operability list below is still the larger
+> item.
+>
+> **New order: M6 → the remaining M5 slices → M7 → M8.**
+
+**Sequencing question resolved 2026-07-29 (now superseded, kept for the
+reasoning): M6 moves behind the rest of M5.**
 M6 was pulled ahead of decks/admin specifically to get a build in friends' hands
 for playtest feedback (see the top of this doc). Playtest #1 delivered that
 feedback **without a deployment** — a local LAN game was enough — which removed
